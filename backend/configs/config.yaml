@@ -1,0 +1,129 @@
+# 服务器配置
+server:
+  port: 8443
+  read_timeout: 60s
+  write_timeout: 60s
+  max_header_bytes: 1048576  # 1MB
+
+# 豆包AI配置
+doubao:
+  api_key: "98d12c4b-d507-49f6-99be-c3452570f964"  # 请填入您的豆包API密钥
+  base_url: "https://ark.cn-beijing.volces.com/api/v3"
+  model: "doubao-seed-1-6-250615"
+  max_tokens: 4096
+  temperature: 0.7
+  timeout: 30s
+
+# Agent配置
+agent:
+  system_prompt: |
+    你是一个智能助手，能够帮助用户完成各种任务。
+    请根据用户的需求制定合理的计划，并使用可用的工具来执行任务。
+  
+  # 历史对话配置
+  max_history_messages: 20  # 最大历史消息数量（包括user和assistant消息），默认20条
+  
+  plan_prompt: |
+    你是一个IT数字工程师，能够利用工具帮助用户解决各种IT相关的问题。
+    如果用户咨询的是IT相关问题，你需要根据用户的请求制定详细的执行计划。
+    请分析用户需求，制定步骤清晰的任务列表。
+    
+    输出格式要求：
+    1. 以markdown的 "todo list" 格式输出
+    2. 任务分解要具体明确
+    3. 每个步骤都要可执行
+    4. 考虑任务之间的依赖关系
+  
+  execute_prompt: |
+    你现在需要执行具体的任务。
+    请使用合适的工具来完成当前任务，并提供详细的执行过程。
+    
+    注意事项：
+    1. 优先使用可用的工具
+    2. 提供详细的执行步骤
+    3. 如遇问题及时反馈
+  
+  update_todo_list_prompt: |
+    请根据刚才的执行结果更新任务状态。
+    
+    更新规则：
+    1. 已完成的任务标记为completed
+    2. 执行失败的任务标记为failed
+    3. 需要继续的任务保持pending状态
+    4. 如果计划需要调整，请重新生成后续的待执行任务，已经完成执行的历史任务保持completed或者failed状态
+
+    输出格式：
+    1. 以markdown的 "todo list" 格式输出
+    2. 任务分解要具体明确
+    3. 每个步骤都要可执行
+    4. 考虑任务之间的依赖关系
+  
+  summary_prompt: |
+    你是一个IT数字工程师，能够帮助用户解决各种IT相关的问题。
+    请对本次任务执行进行总结输出。
+    如果没有执行任何的任务,请合理与用户进行沟通。
+    如果执行任务需要用户输入更多的信息，请邀请用不补充。
+    
+    总结内容包括：
+    1. 完成的任务概述
+    2. 遇到的问题和解决方案
+    3. 最终结果评估
+  
+  intent_analysis_prompt: |
+    请分析用户意图，判断这是什么类型的请求。
+  
+  enable_tools: true
+  enable_memory: true
+  log_detail: true
+  log_debug: false
+
+# CORS配置
+cors:
+  allowed_origins: 
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+    - "http://localhost:8080"
+    - "http://127.0.0.1:3000"
+    - "http://127.0.0.1:5173"
+    - "http://127.0.0.1:8080"
+    - "*"
+  allowed_methods: 
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+    - "OPTIONS"
+  allowed_headers: 
+    - "Origin"
+    - "Content-Type"
+    - "Accept"
+    - "Authorization"
+    - "X-Requested-With"
+    - "Cache-Control"
+  exposed_headers: []
+  allow_credentials: true
+  max_age: 86400
+
+# 日志配置
+log:
+  level: "info"  # debug, info, warn, error
+  format: "json"  # json, text
+
+# 限流配置
+rate_limit:
+  enabled: true
+  requests_per_minute: 60
+  burst: 10
+
+# 会话配置
+session:
+  ttl: 24h  # 会话过期时间
+  cleanup_interval: 1h  # 清理间隔
+
+# 存储配置
+storage:
+  type: "disk"  # 存储类型: memory/disk
+  data_dir: "./data"  # 数据目录
+  cache_size: 1000  # 缓存大小
+  backup_interval: 24h  # 备份间隔
+  sync_interval: 5m  # 同步间隔

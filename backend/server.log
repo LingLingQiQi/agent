@@ -1,0 +1,170 @@
+{"level":"info","msg":"服务器启动在端口 8443","time":"2025-07-19T00:18:36+08:00"}
+[GIN] 2025/07/19 - 00:18:43 | 200 |     626.709µs |             ::1 | POST     "/api/chat/session"
+=== ChatHandler.StreamChat 开始执行 ===
+收到聊天请求 - SessionID: , Message: 你好，请介绍一下你自己
+调用 chatService.StreamChat...
+=== StreamChat 方法开始执行 ===
+SessionID: , Message: 你好，请介绍一下你自己
+=== StreamChat goroutine 开始执行 ===
+=== 创建新会话 ===
+创建新会话成功，ID: 1752855543465340000
+=== 添加用户消息 ===
+用户消息添加成功
+=== 准备调用 RunAgent ===
+Using API Key: 98d12c4b-d..., Model: ep-20250407173604-g225j
+=== RunAgent 调用成功 ===
+[GIN] 2025/07/19 - 00:19:06 | 200 |  2.611754708s |             ::1 | POST     "/api/chat/stream"
+[GIN] 2025/07/19 - 00:19:45 | 200 |     143.292µs |             ::1 | POST     "/api/chat/session/list"
+[GIN] 2025/07/19 - 00:19:45 | 200 |     139.792µs |             ::1 | POST     "/api/chat/session/list"
+[GIN] 2025/07/19 - 00:19:56 | 200 |     135.208µs |             ::1 | POST     "/api/chat/session"
+[GIN] 2025/07/19 - 00:19:56 | 200 |      94.333µs |             ::1 | POST     "/api/chat/session/list"
+=== ChatHandler.StreamChat 开始执行 ===
+收到聊天请求 - SessionID: , Message: 你好
+调用 chatService.StreamChat...
+=== StreamChat 方法开始执行 ===
+SessionID: , Message: 你好
+=== StreamChat goroutine 开始执行 ===
+=== 创建新会话 ===
+创建新会话成功，ID: 1752855596892696000
+=== 添加用户消息 ===
+用户消息添加成功
+=== 准备调用 RunAgent ===
+Using API Key: 98d12c4b-d..., Model: ep-20250407173604-g225j
+=== RunAgent 调用成功 ===
+[GIN] 2025/07/19 - 00:19:57 | 200 |  672.164708ms |             ::1 | POST     "/api/chat/stream"
+[GIN] 2025/07/19 - 00:20:04 | 200 |     114.083µs |             ::1 | POST     "/api/chat/session"
+[GIN] 2025/07/19 - 00:20:04 | 200 |      100.25µs |             ::1 | POST     "/api/chat/session/list"
+=== ChatHandler.StreamChat 开始执行 ===
+收到聊天请求 - SessionID: , Message: 你是谁？
+调用 chatService.StreamChat...
+=== StreamChat 方法开始执行 ===
+SessionID: , Message: 你是谁？
+=== StreamChat goroutine 开始执行 ===
+=== 创建新会话 ===
+创建新会话成功，ID: 1752855604473899000
+=== 添加用户消息 ===
+用户消息添加成功
+=== 准备调用 RunAgent ===
+Using API Key: 98d12c4b-d..., Model: ep-20250407173604-g225j
+=== RunAgent 调用成功 ===
+[GIN] 2025/07/19 - 00:20:05 | 200 |  859.339708ms |             ::1 | POST     "/api/chat/stream"
+[GIN] 2025/07/19 - 00:20:13 | 200 |     100.291µs |             ::1 | POST     "/api/chat/session"
+[GIN] 2025/07/19 - 00:20:13 | 200 |      95.375µs |             ::1 | POST     "/api/chat/session/list"
+=== ChatHandler.StreamChat 开始执行 ===
+收到聊天请求 - SessionID: , Message: 你能做什么？
+调用 chatService.StreamChat...
+=== StreamChat 方法开始执行 ===
+SessionID: , Message: 你能做什么？
+=== StreamChat goroutine 开始执行 ===
+=== 创建新会话 ===
+创建新会话成功，ID: 1752855613795458000
+=== 添加用户消息 ===
+用户消息添加成功
+=== 准备调用 RunAgent ===
+Using API Key: 98d12c4b-d..., Model: ep-20250407173604-g225j
+=== RunAgent 调用成功 ===
+[GIN] 2025/07/19 - 00:20:18 | 200 |  4.217385333s |             ::1 | POST     "/api/chat/stream"
+[GIN] 2025/07/19 - 00:20:28 | 200 |      47.875µs |             ::1 | POST     "/api/chat/session"
+[GIN] 2025/07/19 - 00:20:28 | 200 |      88.292µs |             ::1 | POST     "/api/chat/session/list"
+=== ChatHandler.StreamChat 开始执行 ===
+收到聊天请求 - SessionID: , Message: 解释一下勾股定理
+调用 chatService.StreamChat...
+=== StreamChat 方法开始执行 ===
+SessionID: , Message: 解释一下勾股定理
+=== StreamChat goroutine 开始执行 ===
+=== 创建新会话 ===
+创建新会话成功，ID: 1752855628244839000
+=== 添加用户消息 ===
+用户消息添加成功
+=== 准备调用 RunAgent ===
+Using API Key: 98d12c4b-d..., Model: ep-20250407173604-g225j
+=== RunAgent 调用成功 ===
+[GIN] 2025/07/19 - 00:20:40 | 200 | 12.289885583s |             ::1 | POST     "/api/chat/stream"
+[GIN] 2025/07/19 - 00:20:58 | 200 |          43µs |             ::1 | POST     "/api/chat/session"
+[GIN] 2025/07/19 - 00:20:58 | 200 |     200.833µs |             ::1 | POST     "/api/chat/session/list"
+=== ChatHandler.StreamChat 开始执行 ===
+收到聊天请求 - SessionID: , Message: 用go写个简单的web 服务器
+调用 chatService.StreamChat...
+=== StreamChat 方法开始执行 ===
+SessionID: , Message: 用go写个简单的web 服务器
+=== StreamChat goroutine 开始执行 ===
+=== 创建新会话 ===
+创建新会话成功，ID: 1752855658908743000
+=== 添加用户消息 ===
+用户消息添加成功
+=== 准备调用 RunAgent ===
+Using API Key: 98d12c4b-d..., Model: ep-20250407173604-g225j
+=== RunAgent 调用成功 ===
+[GIN] 2025/07/19 - 00:21:05 | 200 |  7.038631959s |             ::1 | POST     "/api/chat/stream"
+[GIN] 2025/07/19 - 00:21:25 | 200 |       43.75µs |             ::1 | POST     "/api/chat/session"
+[GIN] 2025/07/19 - 00:21:25 | 200 |     140.875µs |             ::1 | POST     "/api/chat/session/list"
+=== ChatHandler.StreamChat 开始执行 ===
+收到聊天请求 - SessionID: , Message: 常用的emoji表情有哪些？
+调用 chatService.StreamChat...
+=== StreamChat 方法开始执行 ===
+SessionID: , Message: 常用的emoji表情有哪些？
+=== StreamChat goroutine 开始执行 ===
+=== 创建新会话 ===
+创建新会话成功，ID: 1752855685762349000
+=== 添加用户消息 ===
+用户消息添加成功
+=== 准备调用 RunAgent ===
+Using API Key: 98d12c4b-d..., Model: ep-20250407173604-g225j
+=== RunAgent 调用成功 ===
+[GIN] 2025/07/19 - 00:21:43 | 200 | 17.941231459s |             ::1 | POST     "/api/chat/stream"
+[GIN] 2025/07/19 - 00:22:10 | 200 |     486.667µs |             ::1 | POST     "/api/chat/session/list"
+[GIN] 2025/07/19 - 00:22:10 | 200 |     395.625µs |             ::1 | POST     "/api/chat/session/list"
+[GIN] 2025/07/19 - 00:22:16 | 200 |      107.25µs |             ::1 | POST     "/api/chat/session"
+[GIN] 2025/07/19 - 00:22:16 | 200 |     219.334µs |             ::1 | POST     "/api/chat/session/list"
+=== ChatHandler.StreamChat 开始执行 ===
+收到聊天请求 - SessionID: , Message: 你好
+调用 chatService.StreamChat...
+=== StreamChat 方法开始执行 ===
+SessionID: , Message: 你好
+=== StreamChat goroutine 开始执行 ===
+=== 创建新会话 ===
+创建新会话成功，ID: 1752855736122928000
+=== 添加用户消息 ===
+用户消息添加成功
+=== 准备调用 RunAgent ===
+Using API Key: 98d12c4b-d..., Model: ep-20250407173604-g225j
+=== RunAgent 调用成功 ===
+[GIN] 2025/07/19 - 00:22:17 | 200 |     884.111ms |             ::1 | POST     "/api/chat/stream"
+[GIN] 2025/07/19 - 00:22:23 | 200 |     106.125µs |             ::1 | POST     "/api/chat/session"
+[GIN] 2025/07/19 - 00:22:23 | 200 |     450.708µs |             ::1 | POST     "/api/chat/session/list"
+=== ChatHandler.StreamChat 开始执行 ===
+收到聊天请求 - SessionID: , Message: 你是谁？
+调用 chatService.StreamChat...
+=== StreamChat 方法开始执行 ===
+SessionID: , Message: 你是谁？
+=== StreamChat goroutine 开始执行 ===
+=== 创建新会话 ===
+创建新会话成功，ID: 1752855743310930000
+=== 添加用户消息 ===
+用户消息添加成功
+=== 准备调用 RunAgent ===
+Using API Key: 98d12c4b-d..., Model: ep-20250407173604-g225j
+=== RunAgent 调用成功 ===
+[GIN] 2025/07/19 - 00:22:24 | 200 |  714.425125ms |             ::1 | POST     "/api/chat/stream"
+[GIN] 2025/07/19 - 00:23:49 | 200 |     401.542µs |             ::1 | GET      "/api/chat/messages/1752855543465340000"
+[GIN] 2025/07/19 - 00:23:50 | 200 |      43.875µs |             ::1 | GET      "/api/chat/messages/1752855604473899000"
+[GIN] 2025/07/19 - 00:23:50 | 200 |      84.875µs |             ::1 | GET      "/api/chat/messages/1752855628230370000"
+[GIN] 2025/07/19 - 00:23:54 | 200 |      232.25µs |             ::1 | GET      "/api/chat/messages/1752855685762349000"
+[GIN] 2025/07/19 - 00:24:00 | 200 |          74µs |             ::1 | GET      "/api/chat/messages/1752855743284262000"
+[GIN] 2025/07/19 - 00:24:01 | 200 |      73.583µs |             ::1 | GET      "/api/chat/messages/1752855596881335000"
+[GIN] 2025/07/19 - 00:24:01 | 200 |      35.208µs |             ::1 | GET      "/api/chat/messages/1752855523483250000"
+[GIN] 2025/07/19 - 00:26:49 | 200 |     1.06775ms |             ::1 | POST     "/api/chat/session/list"
+[GIN] 2025/07/19 - 00:26:49 | 200 |     525.666µs |             ::1 | POST     "/api/chat/session/list"
+[GIN] 2025/07/19 - 00:26:57 | 200 |     365.542µs |             ::1 | GET      "/api/chat/messages/1752855658908743000"
+[GIN] 2025/07/19 - 00:26:58 | 200 |     141.875µs |             ::1 | GET      "/api/chat/messages/1752855658908743000"
+[GIN] 2025/07/19 - 00:26:59 | 200 |     278.208µs |             ::1 | GET      "/api/chat/messages/1752855658908743000"
+[GIN] 2025/07/19 - 00:26:59 | 200 |      73.875µs |             ::1 | GET      "/api/chat/messages/1752855658908743000"
+[GIN] 2025/07/19 - 00:26:59 | 200 |         265µs |             ::1 | GET      "/api/chat/messages/1752855658908743000"
+[GIN] 2025/07/19 - 00:26:59 | 200 |     159.291µs |             ::1 | GET      "/api/chat/messages/1752855658908743000"
+[GIN] 2025/07/19 - 00:27:00 | 200 |     112.583µs |             ::1 | GET      "/api/chat/messages/1752855658908743000"
+[GIN] 2025/07/19 - 00:27:01 | 200 |     187.833µs |             ::1 | GET      "/api/chat/messages/1752855658908743000"
+[GIN] 2025/07/19 - 00:27:01 | 200 |     165.875µs |             ::1 | GET      "/api/chat/messages/1752855658908743000"
+[GIN] 2025/07/19 - 00:27:02 | 200 |      154.25µs |             ::1 | GET      "/api/chat/messages/1752855658908743000"
+[GIN] 2025/07/19 - 00:27:05 | 200 |      67.375µs |             ::1 | GET      "/api/chat/messages/1752855596881335000"
+[GIN] 2025/07/19 - 00:27:08 | 200 |     211.709µs |             ::1 | GET      "/api/chat/messages/1752855628244839000"
+signal: killed
