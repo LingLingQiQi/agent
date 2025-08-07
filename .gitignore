@@ -1,5 +1,6 @@
 # Backend data directory
 backend/data/
+frontend/node_modules
 
 # Node.js dependencies
 node_modules/
