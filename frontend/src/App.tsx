@@ -3,7 +3,7 @@ import 'ds-markdown/style.css'
 import './App.css'
 import { sessionRenderManager } from './SessionIsolatedRenderManager'
 import { MessageDisplay } from './MessageDisplay'
-import StreamingMessageDisplay, { StreamingMessageDisplayRef } from './StreamingMessageDisplay'
+import StreamingMessageDisplay, { type StreamingMessageDisplayRef } from './StreamingMessageDisplay'
 
 interface Message {
   id: string
@@ -730,14 +730,14 @@ function App() {
                       {session.title}
                     </span>
                   </div>
-                  <div className="absolute right-[3px] top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center">
+                  <div className="absolute right-[3px] top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
                     <button 
                       onClick={(e) => {
                         e.stopPropagation()
                         editSessionTitle(session.id, session.title)
                       }}
-                      className={`w-5 h-5 rounded flex items-center justify-center ${
-                        session.id === currentSession ? 'hover:bg-blue-200' : 'hover:bg-gray-200'
+                      className={`w-5 h-5 rounded flex items-center justify-center ${ // 移除单独margin，使用父容器gap
+                        session.id === currentSession ? 'hover:bg-blue-primary/10 text-blue-primary' : 'hover:bg-blue-primary/10 text-blue-primary'
                       }`}
                     >
                       <i className={`fas fa-edit text-[13px] ${
@@ -749,8 +749,8 @@ function App() {
                         e.stopPropagation()
                         deleteSession(session.id)
                       }}
-                      className={`w-5 h-5 rounded flex items-center justify-center ml-[-8px] ${
-                        session.id === currentSession ? 'hover:bg-blue-200' : 'hover:bg-gray-200'
+                      className={`w-5 h-5 rounded flex items-center justify-center ${ // 移除单独margin，使用父容器gap
+                        session.id === currentSession ? 'hover:bg-blue-primary/10 text-blue-primary' : 'hover:bg-blue-primary/10 text-blue-primary'
                       }`}
                     >
                       <i className={`fas fa-trash text-[13px] ${

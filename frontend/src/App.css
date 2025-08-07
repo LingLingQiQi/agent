@@ -173,9 +173,9 @@ body {
 }
 
 /* 注释掉强制的list-style-type，让ds-markdown自己处理todolist */
-/* .markdown-content .ds-markdown ul {
+.markdown-content .ds-markdown ul {
   list-style-type: disc !important;
-} */
+}
 
 .markdown-content .ds-markdown ol {
   list-style-type: decimal !important;
