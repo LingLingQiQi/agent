@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"io"
 	"strings"
 	"sync"
 	"time"
@@ -16,135 +15,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// ProgressStep 表示单个进度步骤
-type ProgressStep struct {
-	NodeName    string    `json:"node_name"`    // 节点名称
-	Message     string    `json:"message"`      // 进度消息
-	Status      string    `json:"status"`       // 状态：in_progress, completed, error
-	Timestamp   time.Time `json:"timestamp"`    // 时间戳
-	Emoji       string    `json:"emoji"`        // emoji图标
-}
-
-// ProgressMessageManager 管理累积式进度消息
-type ProgressMessageManager struct {
-	sessionID         string         `json:"session_id"`
-	progressMessageID string         `json:"progress_message_id"`
-	progressSteps     []ProgressStep `json:"progress_steps"`
-	isCompleted       bool           `json:"is_completed"`
-	mu                sync.RWMutex   `json:"-"` // 不序列化mutex
-}
-
-// NewProgressMessageManager 创建新的进度消息管理器
-func NewProgressMessageManager(sessionID string) *ProgressMessageManager {
-	return &ProgressMessageManager{
-		sessionID:         sessionID,
-		progressMessageID: "progress-" + sessionID,
-		progressSteps:     make([]ProgressStep, 0),
-		isCompleted:       false,
-	}
-}
-
-// AddProgress 添加进度步骤
-func (pm *ProgressMessageManager) AddProgress(nodeName, message, status string) {
-	pm.mu.Lock()
-	defer pm.mu.Unlock()
-	
-	// 根据状态选择合适的emoji
-	emoji := pm.getEmojiForStatus(status, nodeName)
-	
-	// 检查是否已存在相同节点的步骤，如果存在则更新
-	for i, step := range pm.progressSteps {
-		if step.NodeName == nodeName {
-			pm.progressSteps[i] = ProgressStep{
-				NodeName:  nodeName,
-				Message:   message,
-				Status:    status,
-				Timestamp: time.Now(),
-				Emoji:     emoji,
-			}
-			return
-		}
-	}
-	
-	// 如果不存在，则添加新步骤
-	pm.progressSteps = append(pm.progressSteps, ProgressStep{
-		NodeName:  nodeName,
-		Message:   message,
-		Status:    status,
-		Timestamp: time.Now(),
-		Emoji:     emoji,
-	})
-}
-
-// getEmojiForStatus 根据状态和节点名称获取合适的emoji
-func (pm *ProgressMessageManager) getEmojiForStatus(status, nodeName string) string {
-	if status == "completed" {
-		return "✅"
-	} else if status == "error" {
-		return "❌"
-	}
-	
-	// 根据节点名称选择不同的进行中emoji
-	switch {
-	case strings.Contains(nodeName, "UserMessageToMap"):
-		return "⏳"
-	case strings.Contains(nodeName, "PlanModel"):
-		return "📝"
-	case strings.Contains(nodeName, "WritePlan"):
-		return "💾"
-	case strings.Contains(nodeName, "ScanTodoList"):
-		return "🔍"
-	case strings.Contains(nodeName, "ExecuteModel"):
-		return "⚡"
-	case strings.Contains(nodeName, "ToolsNode"):
-		return "🔧"
-	case strings.Contains(nodeName, "UpdateTodoListModel"):
-		return "🔄"
-	case strings.Contains(nodeName, "SummaryModel"):
-		return "📊"
-	default:
-		return "🔄"
-	}
-}
-
-// MarkCompleted 标记进度为完成
-func (pm *ProgressMessageManager) MarkCompleted() {
-	pm.mu.Lock()
-	defer pm.mu.Unlock()
-	pm.isCompleted = true
-}
-
-// BuildMarkdownContent 构建Markdown格式的进度内容
-func (pm *ProgressMessageManager) BuildMarkdownContent() string {
-	pm.mu.RLock()
-	defer pm.mu.RUnlock()
-	
-	var content strings.Builder
-	
-	// 添加标题
-	if pm.isCompleted {
-		content.WriteString("## ✅ 处理完成\n\n")
-	} else {
-		content.WriteString("## 🔄 正在处理中...\n\n")
-	}
-	
-	// 添加进度步骤列表
-	for _, step := range pm.progressSteps {
-		content.WriteString(fmt.Sprintf("- %s **%s**: %s\n", 
-			step.Emoji, step.NodeName, step.Message))
-	}
-	
-	// 添加分割线和状态说明
-	content.WriteString("\n---\n")
-	if pm.isCompleted {
-		content.WriteString("*所有步骤执行完毕*")
-	} else {
-		content.WriteString("*处理中，请稍候...*")
-	}
-	
-	return content.String()
-}
-
 type ChatService struct {
 	storage storage.Storage
 	mu      sync.RWMutex
@@ -153,13 +23,13 @@ type ChatService struct {
 
 func NewChatService(cfg *config.Config) *ChatService {
 	var store storage.Storage
-	
+
 	if cfg.Storage.Type == "disk" {
 		store = storage.NewDiskStorage(cfg.Storage.DataDir, cfg.Storage.CacheSize)
 	} else {
 		store = storage.NewMemoryStorage()
 	}
-	
+
 	if err := store.Init(); err != nil {
 		logger.Errorf("Failed to initialize storage: %v", err)
 		store = storage.NewMemoryStorage()
@@ -287,25 +157,35 @@ func (s *ChatService) StreamChat(sessionID, message string) (<-chan model.ChatRe
 	fmt.Println("=== StreamChat 方法开始执行 ===")
 	fmt.Printf("SessionID: %s, Message: %s\n", sessionID, message)
 
-	respChan := make(chan model.ChatResponse, 100) // 增加缓冲区，确保进度消息实时发送
+	respChan := make(chan model.ChatResponse, 1000) // 增加缓冲区容量
 	errChan := make(chan error, 1)
 
 	go func() {
 		defer close(respChan)
 		defer close(errChan)
 
+		// 🛡️ 添加panic恢复机制
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Errorf("StreamChat goroutine panic recovered: %v", r)
+				select {
+				case errChan <- fmt.Errorf("internal server error: %v", r):
+				default:
+					logger.Warn("Error channel is full, cannot send panic error")
+				}
+			}
+		}()
+
 		fmt.Println("=== StreamChat goroutine 开始执行 ===")
 		ctx := context.Background()
 
-		// 只有在 sessionID 为空时才创建新会话
-		// 这应该只在前端明确没有会话时才发生
+		// 验证会话和添加用户消息（保持不变）
 		if sessionID == "" {
 			fmt.Println("=== 会话ID为空，返回错误 ===")
 			errChan <- fmt.Errorf("sessionID is required")
 			return
 		}
 
-		// 检查会话是否存在
 		_, err := s.GetSession(sessionID)
 		if err != nil {
 			fmt.Printf("会话不存在: %v\n", err)
@@ -320,154 +200,166 @@ func (s *ChatService) StreamChat(sessionID, message string) (<-chan model.ChatRe
 			errChan <- err
 			return
 		}
-		fmt.Println("用户消息添加成功")
 
-		fmt.Println("=== 准备调用 RunAgentWithProgress ===")
-		// 调用带进度报告的 RunAgent 方法
-		stream, progressChan, err := RunAgentWithProgress(ctx, sessionID, message)
-		if err != nil {
-			fmt.Printf("RunAgentWithProgress 调用失败: %v\n", err)
-			errChan <- fmt.Errorf("RunAgentWithProgress 调用失败: %w", err)
-			return
-		}
-		fmt.Println("=== RunAgentWithProgress 调用成功 ===")
-
-		// 创建进度消息管理器
-		progressManager := NewProgressMessageManager(sessionID)
-		
-		// 启动 goroutine 处理进度事件 - 增加优先级调度
-		progressDone := make(chan bool, 1)
-		go func() {
-			defer func() { progressDone <- true }()
-			fmt.Println("=== 开始监听进度事件 ===")
-			
-			for progressEvent := range progressChan {
-				// 确定进度状态
-				status := "in_progress"
-				if progressEvent.EventType == "node_complete" {
-					status = "completed"
-				} else if progressEvent.EventType == "node_error" {
-					status = "error"
-				}
-				
-				// 添加进度到管理器
-				progressManager.AddProgress(progressEvent.NodeName, progressEvent.Message, status)
-				
-				// 构建Markdown内容
-				markdownContent := progressManager.BuildMarkdownContent()
-				
-				// 发送累积的进度消息 - 使用阻塞发送确保实时性
-				respChan <- model.ChatResponse{
-					SessionID: sessionID,
-					MessageID: progressManager.progressMessageID, // 使用固定的进度消息ID
-					Content:   markdownContent,
-					Role:      "assistant", // 改为assistant，作为Bot消息显示
-					Timestamp: progressEvent.Timestamp.Unix(),
-				}
-				
-				fmt.Printf("📊 发送进度更新: %s - %s\n", progressEvent.NodeName, progressEvent.Message)
-				
-				// 强制让出CPU时间，确保消息能被处理
-				time.Sleep(1 * time.Millisecond)
-			}
-			
-			// 进度完成后，标记管理器为完成状态并发送最终进度消息
-			progressManager.MarkCompleted()
-			finalMarkdownContent := progressManager.BuildMarkdownContent()
-			
-			respChan <- model.ChatResponse{
-				SessionID: sessionID,
-				MessageID: progressManager.progressMessageID,
-				Content:   finalMarkdownContent,
-				Role:      "assistant",
-				Timestamp: time.Now().Unix(),
-			}
-			
-			fmt.Println("✅ 发送最终进度完成消息")
-			fmt.Println("=== 进度事件监听结束 ===")
-		}()
-
-		defer stream.Close()
-
-		var fullContent strings.Builder
+		// ✅ 生成统一MessageID
 		messageID := uuid.New().String()
-		
-		// ✅ 立即保存空的助手消息，确保render API能找到消息
-		fmt.Printf("=== 预先保存空助手消息，ID: %s ===\n", messageID)
+		fmt.Printf("=== 生成统一MessageID: %s ===\n", messageID)
+
+		// ✅ 预先保存空助手消息
 		initialMessage := &model.Message{
 			ID:        messageID,
 			SessionID: sessionID,
 			Role:      "assistant",
-			Content:   "", // 空内容，稍后更新
+			Content:   "",
 			Timestamp: time.Now(),
 		}
-		
-		saveErr := s.storage.AddMessage(sessionID, initialMessage)
-		if saveErr != nil {
-			logger.Errorf("Failed to save initial assistant message: %v", saveErr)
-			fmt.Printf("保存初始助手消息失败: %v\n", saveErr)
-			errChan <- saveErr
+
+		if err := s.storage.AddMessage(sessionID, initialMessage); err != nil {
+			logger.Errorf("Failed to save initial assistant message: %v", err)
+			errChan <- err
 			return
 		}
-		fmt.Printf("初始助手消息保存成功，ID: %s\n", messageID)
 
-		for {
-			chunk, err := stream.Recv()
-			if err != nil {
-				if err == io.EOF {
-					fmt.Printf("=== 流结束，更新完整助手消息 ===\n")
-					// 流结束，更新已存在消息的内容
-					if fullContent.Len() > 0 {
-						fmt.Printf("更新助手消息: %s (ID: %s)\n", fullContent.String(), messageID)
-						
-						// 更新现有消息的内容
-						updateErr := s.UpdateMessageContent(sessionID, messageID, fullContent.String())
-						if updateErr != nil {
-							logger.Errorf("Failed to update assistant message: %v", updateErr)
-							fmt.Printf("更新助手消息失败: %v\n", updateErr)
-						} else {
-							fmt.Printf("助手消息更新成功，ID: %s\n", messageID)
-							
-							// ✅ 自动渲染HTML内容
-							fmt.Printf("=== 准备启动自动渲染goroutine ===\n")
-							go func() {
-								fmt.Printf("=== 开始自动渲染HTML内容 ===\n")
-								renderErr := s.autoRenderMessageHTML(sessionID, messageID, fullContent.String())
-								if renderErr != nil {
-									fmt.Printf("自动HTML渲染失败: %v\n", renderErr)
-								} else {
-									fmt.Printf("自动HTML渲染成功，消息ID: %s\n", messageID)
-								}
-							}()
-						}
+		// 🎯 调用Agent获取进度通道和结果流
+		stream, progressChan, err := RunAgent(ctx, sessionID, message)
+		if err != nil {
+			fmt.Printf("RunAgent 调用失败: %v\n", err)
+			errChan <- err
+			return
+		}
+		defer func() {
+			if stream != nil {
+				stream.Close()
+			}
+		}()
+
+		// 🎯 实时处理进度事件，动态检测DirectReply模式
+		fmt.Println("=== 处理进度事件并动态检测模式 ===")
+		var fullContent strings.Builder
+		var summaryContent strings.Builder // 🎯 新增：累积总结内容
+		var isDirectReplyMode bool = false  // 🎯 新增：检测是否为DirectReply模式
+		var firstChunkSent bool = false     // 🎯 新增：跟踪是否已发送第一个chunk
+		
+		for progressEvent := range progressChan {
+			// 🎯 提前检测DirectReply模式 - 通过图执行节点信息判断
+			if !isDirectReplyMode && (progressEvent.NodeName == "directReply" || 
+				(progressEvent.EventType == "completed" && progressEvent.Message == "直接回复完成")) {
+				isDirectReplyMode = true
+				fmt.Printf("🎯 检测到DirectReply模式: EventType=%s, NodeName=%s, Message=%s\n", 
+					progressEvent.EventType, progressEvent.NodeName, progressEvent.Message)
+			}
+			
+			// 检查是否是结果消息
+			if progressEvent.EventType == "result_chunk" {
+				// 🎯 关键修复：使用专门的流式处理函数，保持markdown格式
+				filteredContent := removeThinkingTagsForStream(progressEvent.Message)
+				if filteredContent != "" {
+					fullContent.WriteString(filteredContent)
+					summaryContent.WriteString(filteredContent) // 累积到总结内容中
+					fmt.Printf("📤 接收总结片段: %s\n", filteredContent)
+					
+					// 🎯 新修复：实时流式发送每个字符/词到前端
+					// 根据模式决定是否添加前缀
+					var streamContent string
+					if isDirectReplyMode {
+						// DirectReply模式：直接发送内容，不添加任何前缀
+						streamContent = filteredContent
 					} else {
-						fmt.Printf("助手消息内容为空，保持空内容\n")
+						// 任务模式：只在第一次发送时添加标题前缀
+						if !firstChunkSent {
+							streamContent = "\n\n## 📋 任务总结\n\n" + filteredContent
+							firstChunkSent = true
+						} else {
+							streamContent = filteredContent
+						}
 					}
 					
-					// 等待进度处理完成
-					fmt.Println("=== 等待进度处理完成 ===")
-					<-progressDone
-					fmt.Println("=== 进度处理已完成，返回 ===")
-					return
+					// 实时发送流式内容到前端
+					select {
+					case respChan <- model.ChatResponse{
+						SessionID:   sessionID,
+						MessageID:   messageID,
+						Content:     streamContent,
+						Role:        "assistant",
+						Timestamp:   progressEvent.Timestamp.Unix(),
+						IsProgress:  true,           // 🎯 关键：标记为进度消息
+						ContentType: "progress",     // 🎯 内容类型为进度
+						Phase:       "progress",     // 🎯 阶段为进度
+					}:
+						// 成功发送
+					default:
+						logger.Warn("Response channel is full, cannot send stream progress")
+					}
 				}
-				fmt.Printf("流接收错误: %v\n", err)
-				errChan <- err
-				return
-			}
-
-			if chunk.Content != "" {
-				fullContent.WriteString(chunk.Content)
-				fmt.Printf("接收到消息块: %s\n", chunk.Content)
-
-				respChan <- model.ChatResponse{
+			} else if progressEvent.EventType == "completed" {
+				// 🎯 任务完成，发送完成的总结内容到存储（用于持久化）
+				if summaryContent.Len() > 0 {
+					fmt.Printf("📤 发送完整总结消息: %s\n", summaryContent.String())
+					
+					// 🎯 关键修复：DirectReply模式不添加"任务总结"标题
+					var completeSummary string
+					if isDirectReplyMode {
+						// DirectReply模式：直接使用AI回复内容，不添加标题
+						completeSummary = fmt.Sprintf("\n\n%s", summaryContent.String())
+					} else {
+						// 普通任务模式：添加"任务总结"标题
+						completeSummary = fmt.Sprintf("\n\n## 📋 任务总结\n\n%s", summaryContent.String())
+					}
+					
+					// 更新存储中的消息内容（用于持久化）
+					err := s.AppendMessageProgress(sessionID, messageID, completeSummary)
+					if err != nil {
+						logger.Errorf("Failed to append summary progress: %v", err)
+					}
+				}
+				
+				// 任务完成，发送完成信号
+				fmt.Println("=== 任务执行完成 ===")
+				select {
+				case respChan <- model.ChatResponse{
 					SessionID: sessionID,
 					MessageID: messageID,
-					Content:   chunk.Content,
+					Content:   "",
 					Role:      "assistant",
-					Timestamp: time.Now().Unix(),
+					Timestamp: progressEvent.Timestamp.Unix(),
+					Phase:     "completed",
+				}:
+				default:
+					logger.Warn("Cannot send completion signal")
+				}
+				break // 结束处理
+			} else {
+				// 这是进度消息，按原来的方式处理
+				filteredMessage := removeThinkingTags(progressEvent.Message)
+				progressContent := fmt.Sprintf("%s %s", progressEvent.NodeName, filteredMessage)
+				
+				// 更新存储中的进度内容
+				err := s.SetMessageProgress(sessionID, messageID, progressContent)
+				if err != nil {
+					logger.Errorf("Failed to update progress: %v", err)
+				}
+
+				// 发送进度消息
+				select {
+				case respChan <- model.ChatResponse{
+					SessionID:   sessionID,
+					MessageID:   messageID,
+					Content:     progressContent,
+					Role:        "assistant",
+					Timestamp:   progressEvent.Timestamp.Unix(),
+					IsProgress:  true,
+					ContentType: "progress",
+					Phase:       "progress",
+				}:
+					fmt.Printf("📊 实时发送进度消息: %s (ID: %s)\n", progressContent, messageID)
+				default:
+					logger.Warn("Response channel is full, cannot send progress")
+					return
 				}
 			}
 		}
+
+		fmt.Printf("=== 最终内容长度: %d 字符 ===\n", fullContent.Len())
 	}()
 
 	return respChan, errChan
@@ -476,7 +368,7 @@ func (s *ChatService) StreamChat(sessionID, message string) (<-chan model.ChatRe
 func (s *ChatService) cleanupOldSessions() {
 	ticker := time.NewTicker(s.config.CleanupInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -485,7 +377,7 @@ func (s *ChatService) cleanupOldSessions() {
 				logger.Errorf("Failed to list sessions for cleanup: %v", err)
 				continue
 			}
-			
+
 			cutoff := time.Now().Add(-s.config.TTL)
 			for _, session := range sessions {
 				if session.UpdatedAt.Before(cutoff) {
@@ -535,17 +427,23 @@ func (s *ChatService) ClearAllSessions() error {
 	return nil
 }
 
-// UpdateMessageContent 更新消息内容
-func (s *ChatService) UpdateMessageContent(sessionID, messageID, content string) error {
+// AppendMessageContent 追加消息内容（用于流式正式内容）
+func (s *ChatService) AppendMessageContent(sessionID, messageID, additionalContent string) error {
 	session, err := s.storage.GetSession(sessionID)
 	if err != nil {
 		return fmt.Errorf("failed to get session: %w", err)
 	}
 
-	// 找到并更新消息内容
+	// 找到并追加消息内容
 	for i := range session.Messages {
 		if session.Messages[i].ID == messageID {
-			session.Messages[i].Content = content
+			session.Messages[i].Content += additionalContent
+			// 如果之前是纯进度消息，现在标记为混合类型
+			if session.Messages[i].ContentType == "progress" {
+				session.Messages[i].ContentType = "mixed"
+			} else if session.Messages[i].ContentType == "" {
+				session.Messages[i].ContentType = "content"
+			}
 			// 更新会话
 			session.UpdatedAt = time.Now()
 			return s.storage.UpdateSession(session)
@@ -553,6 +451,102 @@ func (s *ChatService) UpdateMessageContent(sessionID, messageID, content string)
 	}
 
 	return fmt.Errorf("message %s not found in session %s", messageID, sessionID)
+}
+
+// SetMessageProgress 设置消息进度内容（用于进度更新）
+func (s *ChatService) SetMessageProgress(sessionID, messageID, progressContent string) error {
+	session, err := s.storage.GetSession(sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to get session: %w", err)
+	}
+
+	// 找到并设置进度内容
+	for i := range session.Messages {
+		if session.Messages[i].ID == messageID {
+			session.Messages[i].ProgressContent = progressContent
+			// 如果之前有正式内容，标记为混合类型，否则标记为进度类型
+			if session.Messages[i].Content != "" {
+				session.Messages[i].ContentType = "mixed"
+			} else {
+				session.Messages[i].ContentType = "progress"
+			}
+			// 更新会话
+			session.UpdatedAt = time.Now()
+			return s.storage.UpdateSession(session)
+		}
+	}
+
+	return fmt.Errorf("message %s not found in session %s", messageID, sessionID)
+}
+
+// AppendMessageProgress 追加内容到消息进度内容后面（用于最终结果追加）
+func (s *ChatService) AppendMessageProgress(sessionID, messageID, additionalContent string) error {
+	session, err := s.storage.GetSession(sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to get session: %w", err)
+	}
+
+	// 找到并追加进度内容
+	for i := range session.Messages {
+		if session.Messages[i].ID == messageID {
+			// 如果已有进度内容，在后面追加；否则直接设置
+			if session.Messages[i].ProgressContent != "" {
+				session.Messages[i].ProgressContent += additionalContent
+			} else {
+				session.Messages[i].ProgressContent = additionalContent
+			}
+			// 标记为进度类型（因为所有内容都在ProgressContent中）
+			session.Messages[i].ContentType = "progress"
+			// 更新会话
+			session.UpdatedAt = time.Now()
+			return s.storage.UpdateSession(session)
+		}
+	}
+
+	return fmt.Errorf("message %s not found in session %s", messageID, sessionID)
+}
+
+// UpdateMessageRender 更新消息渲染结果
+func (s *ChatService) UpdateMessageRender(sessionID, messageID, htmlContent string, renderTimeMs int) error {
+	session, err := s.storage.GetSession(sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to get session: %w", err)
+	}
+
+	// 找到并更新消息渲染结果
+	for i := range session.Messages {
+		if session.Messages[i].ID == messageID {
+			session.Messages[i].HTMLContent = htmlContent
+			session.Messages[i].IsRendered = true
+			session.Messages[i].RenderTimeMs = renderTimeMs
+			// 更新会话
+			session.UpdatedAt = time.Now()
+			return s.storage.UpdateSession(session)
+		}
+	}
+
+	return fmt.Errorf("message %s not found in session %s", messageID, sessionID)
+}
+
+// GetPendingRenders 获取待渲染的消息数量
+func (s *ChatService) GetPendingRenders(sessionID string) (int, error) {
+	messages, err := s.storage.GetMessages(sessionID)
+	if err != nil {
+		if err == storage.ErrSessionNotFound {
+			return 0, fmt.Errorf("session not found: %s", sessionID)
+		}
+		return 0, fmt.Errorf("failed to get messages: %w", err)
+	}
+
+	pendingCount := 0
+	for _, msg := range messages {
+		// 统计助手消息中未渲染的数量
+		if msg.Role == "assistant" && !msg.IsRendered {
+			pendingCount++
+		}
+	}
+
+	return pendingCount, nil
 }
 
 func (s *ChatService) truncateString(str string, maxLen int) string {
@@ -563,39 +557,7 @@ func (s *ChatService) truncateString(str string, maxLen int) string {
 	return string(runes[:maxLen]) + "..."
 }
 
-// ✅ 约束2：更新单个消息渲染结果，严格验证会话ID
-func (s *ChatService) UpdateMessageRender(sessionID, messageID, htmlContent string, renderTime int64) error {
-	return s.storage.UpdateMessageRender(sessionID, messageID, htmlContent, renderTime)
-}
-
-// ✅ 约束2：批量更新渲染结果，按会话ID分组验证
-func (s *ChatService) UpdateMessagesRender(sessionID string, renders []model.RenderUpdate) error {
-	return s.storage.UpdateMessagesRender(sessionID, renders)
-}
-
-// ✅ 约束2：获取未渲染的消息，严格按会话ID过滤
-func (s *ChatService) GetPendingRenders(sessionID string) ([]*model.Message, error) {
-	messages, err := s.storage.GetPendingRenders(sessionID)
-	if err != nil {
-		if err == storage.ErrSessionNotFound {
-			return nil, fmt.Errorf("session not found: %s", sessionID)
-		}
-		return nil, fmt.Errorf("failed to get pending renders: %w", err)
-	}
-
-	return messages, nil
-}
-
 // GetStorage 返回存储实例，用于其他服务共享
 func (s *ChatService) GetStorage() storage.Storage {
 	return s.storage
-}
-
-// autoRenderMessageHTML 已弃用 - 前端现在负责HTML渲染
-// 保留此方法为空实现以维持兼容性
-func (s *ChatService) autoRenderMessageHTML(sessionID, messageID, content string) error {
-	// 前端现在负责HTML渲染和保存
-	// 此方法不再执行任何操作
-	fmt.Printf("=== autoRenderMessageHTML已弃用，前端负责HTML渲染 ===\n")
-	return nil
 }

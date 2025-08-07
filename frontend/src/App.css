@@ -18,13 +18,42 @@ body {
   line-height: 1.6;
 }
 
-/* DS-Markdown 核心样式覆盖 */
+/* DS-Markdown 核心样式覆盖 - 严格控制间距 */
 .markdown-content .ds-markdown {
   background: transparent !important;
   padding: 0 !important;
   color: #1a1a1a !important;
   font-size: 14px !important;
-  line-height: 1.6 !important;
+  line-height: 1.4 !important;
+  white-space: normal !important;
+}
+
+/* 消除所有默认边距 */
+.markdown-content .ds-markdown > * {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* 特定元素的最小间距 */
+.markdown-content .ds-markdown > *:not(:last-child) {
+  margin-bottom: 0.3rem !important;
+}
+
+/* ⚡️ 修复：为代码块保留换行符，其他地方移除多余的br */
+.markdown-content .ds-markdown br:not(pre br, code br) {
+  display: none !important;
+}
+
+/* ⚡️ 修复：代码块内保持原始空白符格式 */
+.markdown-content .ds-markdown * {
+  white-space: normal !important;
+}
+
+/* 特别为代码块设置保持格式的空白符处理 */
+.markdown-content .ds-markdown pre,
+.markdown-content .ds-markdown pre *,
+.markdown-content .ds-markdown code {
+  white-space: pre-wrap !important;
 }
 
 /* 代码块样式 */
@@ -58,6 +87,9 @@ body {
   margin: 0 !important;
   overflow-x: auto !important;
   font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace !important;
+  /* ⚡️ 修复：确保代码块保持原始格式 */
+  white-space: pre !important;
+  line-height: 1.4 !important;
 }
 
 /* 行内代码样式 */
@@ -75,6 +107,9 @@ body {
   background: transparent !important;
   color: #1a1a1a !important;
   padding: 0 !important;
+  /* ⚡️ 修复：确保代码块内的代码保持原始格式 */
+  white-space: pre !important;
+  font-family: inherit !important;
 }
 
 /* 打字机光标样式 */
@@ -117,22 +152,64 @@ body {
   font-size: 1rem !important;
 }
 
-/* 段落样式 */
+/* 段落样式 - 严格控制间距 */
 .markdown-content .ds-markdown p {
-  margin-bottom: 0.75rem !important;
+  margin: 0 !important;
+  padding: 0 !important;
   color: #1a1a1a !important;
 }
 
-/* 列表样式 */
+/* 段落之间的最小间距 */  
+.markdown-content .ds-markdown p + p {
+  margin-top: 0.3rem !important;
+}
+
+/* 列表样式 - 严格控制间距 */
 .markdown-content .ds-markdown ul,
 .markdown-content .ds-markdown ol {
-  margin-left: 1rem !important;
-  margin-bottom: 0.75rem !important;
+  margin: 0 0 0 1.5rem !important;
+  padding-left: 0 !important;
+  list-style-position: outside !important;
+}
+
+/* 注释掉强制的list-style-type，让ds-markdown自己处理todolist */
+/* .markdown-content .ds-markdown ul {
+  list-style-type: disc !important;
+} */
+
+.markdown-content .ds-markdown ol {
+  list-style-type: decimal !important;
 }
 
 .markdown-content .ds-markdown li {
-  margin-bottom: 0.25rem !important;
+  margin: 0 !important;
+  padding-left: 0.5rem !important;
   color: #1a1a1a !important;
+  display: list-item !important;
+}
+
+/* 列表项之间的最小间距 */
+.markdown-content .ds-markdown li + li {
+  margin-top: 0.1rem !important;
+}
+
+/* 列表与其他元素的间距 */
+.markdown-content .ds-markdown p + ul,
+.markdown-content .ds-markdown p + ol {
+  margin-top: 0.3rem !important;
+}
+
+/* 如果ds-markdown没有生成列表标签，强制手动解析 */
+.markdown-content .ds-markdown-answer {
+  white-space: pre-wrap !important;
+}
+
+.markdown-content p:has-text("1."),
+.markdown-content p:has-text("2."),
+.markdown-content p:has-text("3."),
+.markdown-content p:has-text("4.") {
+  margin-left: 1rem !important;
+  text-indent: -1rem !important;
 }
 
 /* 引用样式 */
@@ -201,4 +278,42 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
+}
+
+/* 任务状态样式 */
+.markdown-content .ds-markdown {
+  /* 失败任务样式 - 匹配包含 [!] 的列表项 */
+}
+
+.markdown-content .ds-markdown li:has-text("[!]") {
+  color: #dc2626 !important;
+  text-decoration: line-through !important;
+  opacity: 0.8 !important;
+}
+
+/* 由于 :has-text() 不被广泛支持，使用更通用的方案 */
+.markdown-content .ds-markdown ul li,
+.markdown-content .ds-markdown ol li {
+  position: relative;
+}
+
+/* 失败任务的特殊标记样式 */
+.task-failed {
+  color: #dc2626 !important;
+  text-decoration: line-through !important;
+  opacity: 0.8 !important;
+}
+
+.task-completed {
+  color: #16a34a !important;
+}
+
+.task-pending {
+  color: #1a1a1a !important;
+}
+
+/* 任务状态图标样式 */
+.task-status-icon {
+  margin-right: 0.5rem !important;
+  font-weight: bold !important;
 }

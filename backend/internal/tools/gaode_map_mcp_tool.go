@@ -2,7 +2,6 @@ package tools
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	einoMcp "github.com/cloudwego/eino-ext/components/tool/mcp"
@@ -29,18 +28,10 @@ func GetGaodeMapMCPTool() []tool.BaseTool {
 		log.Fatal(err)
 	}
 
-	mcpTools, err := einoMcp.GetTools(ctx, &einoMcp.Config{Cli: cli})
-	fmt.Printf("gaode mcp tools size: %d \n", len(mcpTools))
-	for i, mcpTool := range mcpTools {
-		fmt.Println(i, ":")
-		info, err := mcpTool.Info(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println("Name:", info.Name)
-		fmt.Println("Desc:", info.Desc)
-		fmt.Println(" ")
-	}
-
+	// 配置MCP工具，添加错误处理器
+	mcpTools, err := einoMcp.GetTools(ctx, &einoMcp.Config{
+		Cli:                   cli,
+		ToolCallResultHandler: CreateMCPErrorHandler(),
+	})
 	return mcpTools
 }

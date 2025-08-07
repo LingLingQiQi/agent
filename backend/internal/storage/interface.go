@@ -12,12 +12,9 @@ type Storage interface {
 	DeleteSession(sessionID string) error
 	ListSessions() ([]*model.Session, error)
 	
-	// 消息管理（扩展支持HTML）
+	// 消息管理
 	AddMessage(sessionID string, message *model.Message) error
 	GetMessages(sessionID string) ([]*model.Message, error)
-	UpdateMessageRender(sessionID, messageID, htmlContent string, renderTime int64) error
-	UpdateMessagesRender(sessionID string, renders []model.RenderUpdate) error
-	GetPendingRenders(sessionID string) ([]*model.Message, error)
 	
 	// 存储管理
 	Init() error

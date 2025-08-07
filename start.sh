@@ -97,21 +97,22 @@ start_backend() {
     log_info "整理 Go 依赖..."
     go mod tidy
     
-    # 启动后端服务
+    # 启动后端服务 (显示日志)
     log_info "启动后端服务器 (端口 8443)..."
-    nohup go run cmd/main.go > ../logs/backend.log 2>&1 &
+    echo -e "${YELLOW}=== 后端服务日志 ===${NC}"
+    go run cmd/main.go &
     BACKEND_PID=$!
     
     cd ..
     
     # 等待后端启动
-    sleep 5
+    sleep 3
     
     # 检查后端是否启动成功
     if check_port 8443; then
         log_success "后端服务启动成功 (PID: $BACKEND_PID)"
     else
-        log_error "后端服务启动失败，请检查日志: logs/backend.log"
+        log_error "后端服务启动失败，请检查控制台输出"
         exit 1
     fi
 }
@@ -133,21 +134,22 @@ start_frontend() {
         npm install
     fi
     
-    # 启动前端开发服务器
+    # 启动前端开发服务器 (显示日志)
     log_info "启动前端开发服务器 (端口 8080)..."
-    nohup npm run dev > ../logs/frontend.log 2>&1 &
+    echo -e "${YELLOW}=== 前端服务日志 ===${NC}"
+    npm run dev &
     FRONTEND_PID=$!
     
     cd ..
     
     # 等待前端启动
-    sleep 5
+    sleep 3
     
     # 检查前端是否启动成功
     if check_port 8080; then
         log_success "前端服务启动成功 (PID: $FRONTEND_PID)"
     else
-        log_error "前端服务启动失败，请检查日志: logs/frontend.log"
+        log_error "前端服务启动失败，请检查控制台输出"
         exit 1
     fi
 }
@@ -170,8 +172,6 @@ show_access_info() {
     echo "   后端服务:   http://localhost:8443 (PID: $BACKEND_PID)"
     echo ""
     echo "📋 管理命令："
-    echo "   查看后端日志: tail -f logs/backend.log"
-    echo "   查看前端日志: tail -f logs/frontend.log"
     echo "   停止所有服务: ./stop.sh 或 Ctrl+C"
     echo ""
     echo "💡 提示："
@@ -200,9 +200,6 @@ main() {
     echo "🚀 AI 智能体项目启动脚本"
     echo "========================================="
     echo ""
-    
-    # 创建日志目录
-    mkdir -p logs
     
     # 停止之前的服务
     cleanup

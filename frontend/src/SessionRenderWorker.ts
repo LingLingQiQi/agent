@@ -118,7 +118,8 @@ class SessionIsolatedRenderWorker {
         }
     }
 
-    // 后台静默渲染流式内容
+    // 后台静默渲染流式内容 (暂时未使用)
+    /*
     private async renderStreamingContent(messageId: string, content: string): Promise<void> {
         try {
             const startTime = performance.now();
@@ -140,6 +141,7 @@ class SessionIsolatedRenderWorker {
             console.error(`❌ 后台流式渲染失败 (会话: ${this.sessionId}):`, error);
         }
     }
+    */
 
     // 完成流式渲染
     async finishStreaming(sessionId: string, messageId: string): Promise<void> {

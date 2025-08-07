@@ -276,10 +276,10 @@ class SessionIsolatedRenderManager {
     }
 
     // 停止前台渲染
-    private pauseForegroundRender(sessionId: string): void {
-        this.isRendering.set(sessionId, false);
-        console.log(`⏸️ 停止前台渲染: 会话 ${sessionId}`);
-    }
+    /* private pauseForegroundRender(_sessionId: string): void {
+        this.isRendering.set(_sessionId, false);
+        console.log(`⏸️ 停止前台渲染: 会话 ${_sessionId}`);
+    } */
 
     // 调度后台渲染
     private scheduleBackgroundRender(sessionId: string): void {
@@ -427,7 +427,7 @@ class SessionIsolatedRenderManager {
     }
 
     // 从DOM提取HTML内容 - 现在由前端React组件直接处理
-    private extractHTMLFromDOM(sessionId: string, messageId: string, content: string): void {
+    private extractHTMLFromDOM(sessionId: string, messageId: string, _content: string): void {
         try {
             console.log(`🔍 请求HTML提取: 会话 ${sessionId}, 消息 ${messageId}`);
             

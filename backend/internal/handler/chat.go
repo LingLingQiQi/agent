@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"glata-backend/internal/model"
 	"glata-backend/internal/service"
@@ -37,14 +39,57 @@ func (h *ChatHandler) StreamChat(c *gin.Context) {
 		req.SessionID, req.Message, req.BackgroundMode)
 
 	sseWriter := utils.NewSSEWriter(c.Writer)
+	
+	// ✅ 设置连接超时和心跳机制
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 25*time.Minute) // 25分钟超时
+	defer cancel()
+	
+	// ✅ 启动心跳goroutine，防止连接因空闲而断开
+	heartbeatTicker := time.NewTicker(30 * time.Second) // 每30秒发送心跳
+	defer heartbeatTicker.Stop()
+	
+	go func() {
+		for {
+			select {
+			case <-heartbeatTicker.C:
+				// 发送心跳消息，让前端知道连接仍然活跃
+				heartbeatData, _ := json.Marshal(gin.H{
+					"type": "heartbeat",
+					"timestamp": time.Now().Unix(),
+					"message": "连接正常",
+				})
+				if err := sseWriter.Write("heartbeat", string(heartbeatData)); err != nil {
+					logger.Warnf("心跳发送失败: %v", err)
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	fmt.Println("调用 chatService.StreamChat...")
 	respChan, errChan := h.chatService.StreamChat(req.SessionID, req.Message)
+	
+	// ✅ 添加处理开始通知
+	startData, _ := json.Marshal(gin.H{
+		"type": "processing_start",
+		"message": "开始处理您的请求...",
+		"timestamp": time.Now().Unix(),
+	})
+	sseWriter.Write("status", string(startData))
 
 	for {
 		select {
 		case resp, ok := <-respChan:
 			if !ok {
+				// ✅ 处理完成通知
+				completeData, _ := json.Marshal(gin.H{
+					"type": "processing_complete",
+					"message": "处理完成",
+					"timestamp": time.Now().Unix(),
+				})
+				sseWriter.Write("status", string(completeData))
 				sseWriter.Close()
 				return
 			}
@@ -65,13 +110,30 @@ func (h *ChatHandler) StreamChat(c *gin.Context) {
 
 		case err := <-errChan:
 			if err != nil {
-				errData, _ := json.Marshal(gin.H{"error": err.Error()})
-				sseWriter.Write("error", string(errData))
+				// ✅ 增强错误信息
+				errorData, _ := json.Marshal(gin.H{
+					"error": err.Error(),
+					"type": "service_error",
+					"timestamp": time.Now().Unix(),
+					"suggestion": "请检查网络连接或稍后重试",
+				})
+				sseWriter.Write("error", string(errorData))
 				sseWriter.Close()
 				return
 			}
 
-		case <-c.Request.Context().Done():
+		case <-ctx.Done():
+			// ✅ 超时或取消处理
+			if ctx.Err() == context.DeadlineExceeded {
+				timeoutData, _ := json.Marshal(gin.H{
+					"error": "处理超时",
+					"type": "timeout",
+					"timestamp": time.Now().Unix(),
+					"suggestion": "请求处理时间过长，建议简化请求或稍后重试",
+				})
+				sseWriter.Write("error", string(timeoutData))
+			}
+			sseWriter.Close()
 			return
 		}
 	}
@@ -187,66 +249,41 @@ func (h *ChatHandler) UpdateSessionTitle(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Title updated successfully"})
 }
 
-// ✅ 约束2：更新消息渲染结果 - 增加会话ID验证
+// UpdateMessageRender 更新消息渲染结果
 func (h *ChatHandler) UpdateMessageRender(c *gin.Context) {
 	messageID := c.Param("message_id")
 
-	var req model.RenderUpdateRequest
+	var req model.RenderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	err := h.chatService.UpdateMessageRender(req.SessionID, messageID, req.HTMLContent, req.RenderTime)
+	err := h.chatService.UpdateMessageRender(req.SessionID, messageID, req.HTMLContent, req.RenderTimeMs)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Render updated successfully"})
 }
 
-// ✅ 约束2：批量更新渲染结果 - 按会话ID分组
-func (h *ChatHandler) UpdateSessionRenderBatch(c *gin.Context) {
-	sessionID := c.Param("session_id")
-
-	var req model.BatchRenderRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	err := h.chatService.UpdateMessagesRender(sessionID, req.Renders)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Batch render updated successfully"})
-}
-
-// ✅ 约束2：获取未渲染的消息 - 严格按会话ID过滤
+// GetPendingRenders 获取待渲染的消息数量
 func (h *ChatHandler) GetPendingRenders(c *gin.Context) {
 	sessionID := c.Param("session_id")
 
-	messages, err := h.chatService.GetPendingRenders(sessionID)
+	count, err := h.chatService.GetPendingRenders(sessionID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 
-	// 估算渲染时间（假设每条消息平均150ms）
-	estimatedTime := int64(len(messages) * 150)
-
-	response := model.PendingRendersResponse{
-		SessionID:           sessionID, // ✅ 约束2：返回响应包含会话ID
-		Messages:            convertMessages(messages),
-		Total:               len(messages),
-		EstimatedRenderTime: estimatedTime,
-	}
-
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, gin.H{
+		"session_id": sessionID,
+		"total":      count,
+	})
 }
+
 
 // 转换指针切片为值切片
 func convertMessages(messages []*model.Message) []model.Message {

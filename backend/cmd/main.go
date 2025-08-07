@@ -20,6 +20,13 @@ import (
 )
 
 func main() {
+	// ctx := context.Background()
+	// err := devops.Init(ctx)
+	// if err != nil {
+	// 	fmt.Printf("[eino dev] init failed, err=%v\n", err)
+	// 	return
+	// }
+
 	var configPath string
 	flag.StringVar(&configPath, "config", "./configs/config.yaml", "配置文件路径")
 	flag.Parse()
@@ -37,10 +44,10 @@ func main() {
 
 	// 初始化服务
 	chatService := service.NewChatService(cfg)
-	
+
 	// 初始化 Agent 存储（使用与聊天服务相同的存储实例）
 	service.InitAgentStorage(chatService.GetStorage())
-	
+
 	// 初始化处理器
 	chatHandler := handler.NewChatHandler(chatService)
 
@@ -79,13 +86,13 @@ func main() {
 func setupRouter(cfg *config.Config, chatHandler *handler.ChatHandler) *gin.Engine {
 	// 设置gin模式
 	gin.SetMode(gin.ReleaseMode)
-	
+
 	router := gin.New()
-	
+
 	// 中间件
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
-	
+
 	// CORS配置
 	corsConfig := cors.Config{
 		AllowOrigins:     cfg.CORS.AllowedOrigins,
@@ -105,6 +112,10 @@ func setupRouter(cfg *config.Config, chatHandler *handler.ChatHandler) *gin.Engi
 		})
 	})
 
+	// 静态文件服务（用于测试页面）
+	router.Static("/assets", "./assets")
+	router.StaticFile("/test_timeout.html", "./test_timeout.html")
+
 	// API路由
 	api := router.Group("/api")
 	{
@@ -118,10 +129,8 @@ func setupRouter(cfg *config.Config, chatHandler *handler.ChatHandler) *gin.Engi
 			chat.GET("/session/:session_id", chatHandler.GetSession)
 			chat.GET("/messages/:session_id", chatHandler.GetMessages)
 			chat.PUT("/session/:session_id", chatHandler.UpdateSessionTitle)
-			
-			// ✅ 新增渲染相关API端点 - 支持会话隔离
+			// 新增渲染相关接口
 			chat.PUT("/message/:message_id/render", chatHandler.UpdateMessageRender)
-			chat.PUT("/session/:session_id/render-batch", chatHandler.UpdateSessionRenderBatch)
 			chat.GET("/session/:session_id/pending-renders", chatHandler.GetPendingRenders)
 		}
 	}
