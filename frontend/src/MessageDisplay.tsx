@@ -5,6 +5,8 @@ import 'ds-markdown/style.css'
 interface MessageDisplayProps {
   content: string
   isStreaming: boolean
+  onHTMLExtracted?: (messageId: string, html: string) => void
+  messageId?: string
 }
 
 /**
@@ -132,7 +134,7 @@ class MessageFormatter {
   }
 }
 
-export const MessageDisplay = ({ content, isStreaming }: MessageDisplayProps) => {
+export const MessageDisplay = ({ content, isStreaming, onHTMLExtracted, messageId }: MessageDisplayProps) => {
   const [displayContent, setDisplayContent] = useState('');
   const markdownRef = useRef<HTMLDivElement>(null);
 
@@ -163,11 +165,25 @@ export const MessageDisplay = ({ content, isStreaming }: MessageDisplayProps) =>
       {displayContent && (
         <div>
           <Markdown 
-            ref={markdownRef}
             interval={10}
             answerType="answer"
             timerType="requestAnimationFrame"
             theme="light"
+            onEnd={() => {
+              // 🔑 渲染完成回调，提取HTML并保存
+              console.log(`📝 MessageDisplay渲染完成: ${messageId}`);
+              
+              if (markdownRef.current && messageId && onHTMLExtracted) {
+                // 延迟提取，确保DOM完全更新
+                setTimeout(() => {
+                  if (markdownRef.current) {
+                    const htmlContent = markdownRef.current.innerHTML;
+                    console.log(`🎯 提取HTML内容长度: ${htmlContent.length}`);
+                    onHTMLExtracted(messageId, htmlContent);
+                  }
+                }, 200);
+              }
+            }}
           >
             {displayContent}
           </Markdown>

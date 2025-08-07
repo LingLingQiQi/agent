@@ -25,6 +25,17 @@ interface Session {
   updated_at: string
 }
 
+// 辅助函数：检查HTML内容是否包含实际文本
+function hasValidHTMLContent(htmlContent: string): boolean {
+  try {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    return (tempDiv.textContent?.trim().length || 0) > 0;
+  } catch (error) {
+    return false;
+  }
+}
+
 function App() {
   const [currentSession, setCurrentSession] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -34,9 +45,12 @@ function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const markdownRefs = useRef<Map<string, HTMLDivElement>>(new Map()) // 用于跟踪Markdown组件的ref
   const streamingRefs = useRef<Map<string, StreamingMessageDisplayRef>>(new Map()) // 用于跟踪流式消息组件的ref
+  
+  // 🔑 关键修复：全局渲染状态缓存，避免状态丢失
+  const globalRenderedCache = useRef<Map<string, { html_content: string, is_rendered: boolean }>>(new Map())
 
   // 提取ds-markdown渲染的HTML并保存到后端
-  const extractAndSaveHTML = async (messageId: string, sessionId: string) => {
+  const extractAndSaveHTML = async (messageId: string, sessionId: string, retryCount = 0) => {
     // HTML提取开始
     
     // ✅ 跳过错误消息的HTML提取
@@ -49,6 +63,12 @@ function App() {
     const message = messages.find(msg => msg.id === messageId)
     if (message && message.is_rendered) {
       // 消息已渲染，跳过
+      return
+    }
+    
+    // 🔑 关键修复：限制重试次数，避免无限重试
+    if (retryCount >= 3) {
+      console.warn(`⚠️ HTML提取重试次数超限，放弃提取: ${messageId} (重试${retryCount}次)`)
       return
     }
     
@@ -75,7 +95,7 @@ function App() {
         // 延迟重试，给更多内容累积的时间
         setTimeout(() => {
             // 重试HTML提取
-          extractAndSaveHTML(messageId, sessionId)
+          extractAndSaveHTML(messageId, sessionId, retryCount + 1)
         }, 2000) // 增加延迟时间
         return
       }
@@ -110,17 +130,40 @@ function App() {
         const htmlContent = markdownElement.innerHTML
         // HTML内容已提取
         
-        // ✅ 优化HTML内容完整性判断，避免对短内容的误判
+        // ✅ 增强HTML内容完整性判断，确保ds-markdown完全渲染完成
+        const textContent = markdownElement.textContent || '';
+        const expectedContentLength = message?.content?.length || 0;
+        const actualTextLength = textContent.length;
+        
+        // 检查渲染完整性的多个维度
         const isComplete = (
-          htmlContent.includes('ds-markdown-answer') || 
-          htmlContent.includes('</div>') || 
-          htmlContent.includes('<pre') || 
-          htmlContent.includes('<code') ||
-          // ✅ 对于短内容，如果长度合理就认为是完整的
-          (htmlContent.trim().length > 0 && htmlContent.trim().length <= 100 && !htmlContent.includes('<thinking'))
+          // 基本结构完整
+          htmlContent.includes('ds-markdown-answer') && 
+          htmlContent.includes('</div>') &&
+          // 实际文本内容长度合理 (至少是原始内容的80%)
+          actualTextLength >= expectedContentLength * 0.8 &&
+          // 不包含未完成的标签
+          !htmlContent.includes('<thinking') &&
+          // 文本内容不为空
+          textContent.trim().length > 10
         );
         
+        console.log(`📏 HTML完整性检查 ${messageId}:`, {
+          expectedLength: expectedContentLength,
+          actualTextLength,
+          completeness: actualTextLength / expectedContentLength,
+          isComplete,
+          hasAnswerDiv: htmlContent.includes('ds-markdown-answer')
+        });
+        
         if (htmlContent && htmlContent.trim() && isComplete) {
+          // 🔑 关键修复：立即保存到全局缓存，确保状态不丢失
+          globalRenderedCache.current.set(messageId, {
+            html_content: htmlContent,
+            is_rendered: true
+          });
+          console.log(`💾 HTML立即保存到全局缓存: ${messageId}`);
+          
           // 调用后端API保存HTML内容
           const response = await fetch(`http://localhost:8443/api/chat/message/${messageId}/render`, {
             method: 'PUT',
@@ -146,13 +189,14 @@ function App() {
           }
         } else {
           // HTML内容不完整，延迟重试
+          console.warn(`⚠️ HTML内容不完整，准备重试: ${messageId}`);
           
-          // 如果内容不完整，延迟重试
+          // 如果内容不完整，延迟重试，但限制重试次数
           if (message && message.content && message.content.length > 0) {
             setTimeout(() => {
-              // 重试提取HTML
-              extractAndSaveHTML(messageId, sessionId)
-            }, 1000)
+              // 重试提取HTML，增加延迟
+              extractAndSaveHTML(messageId, sessionId, retryCount + 1)
+            }, 3000) // 🔑 增加重试延迟到3秒
           }
         }
       } catch (error) {
@@ -164,7 +208,7 @@ function App() {
       // 如果找不到DOM元素，延迟重试
       setTimeout(() => {
         // 重试查找DOM元素
-        extractAndSaveHTML(messageId, sessionId)
+        extractAndSaveHTML(messageId, sessionId, retryCount + 1)
       }, 500)
     }
   }
@@ -184,7 +228,7 @@ function App() {
       const timeoutId = setTimeout(() => {
         // 自动触发HTML提取
         extractAndSaveHTML(latestBotMessage.id, latestBotMessage.session_id!)
-      }, 800) // 增加延迟确保渲染完成
+      }, 2000) // 🔑 增加延迟到2秒，确保ds-markdown完全渲染
       
       return () => clearTimeout(timeoutId)
     }
@@ -284,6 +328,52 @@ function App() {
   // ✅ 约束2：切换会话 - 使用会话隔离管理器
   const switchSession = async (sessionId: string) => {
     try {
+      // 🔑 关键修复：在清理状态前，保存当前会话的已渲染消息状态到全局缓存
+      messages.forEach(msg => {
+        if (msg.type === 'bot') {
+          // 对于已经有HTML的消息，直接保存
+          if (msg.html_content && msg.is_rendered) {
+            globalRenderedCache.current.set(msg.id, {
+              html_content: msg.html_content,
+              is_rendered: msg.is_rendered
+            });
+            console.log(`💾 保存已渲染消息到全局缓存: ${msg.id}`);
+          }
+          // 🔑 关键修复：对于所有bot消息，尝试从DOM提取HTML（不管后端状态如何）
+          else {
+            const markdownElement = markdownRefs.current.get(msg.id);
+            if (markdownElement) {
+              const htmlContent = markdownElement.innerHTML;
+              const textContent = markdownElement.textContent || '';
+              
+              // 检查HTML内容是否完整
+              if (htmlContent && textContent.length > 50 && htmlContent.includes('ds-markdown-answer')) {
+                globalRenderedCache.current.set(msg.id, {
+                  html_content: htmlContent,
+                  is_rendered: true
+                });
+                console.log(`💾 从DOM提取HTML保存到全局缓存: ${msg.id}, HTML长度: ${htmlContent.length}`);
+                
+                // 异步保存到后端，不阻塞会话切换
+                fetch(`http://localhost:8443/api/chat/message/${msg.id}/render`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    session_id: msg.session_id,
+                    html_content: htmlContent,
+                    render_time_ms: 0
+                  })
+                }).catch(error => console.warn(`⚠️ 后台保存HTML失败: ${msg.id}`, error));
+              } else {
+                console.log(`⚠️ DOM提取失败或内容不完整: ${msg.id}, textLength: ${textContent.length}, hasAnswerDiv: ${htmlContent?.includes('ds-markdown-answer')}`);
+              }
+            } else {
+              console.log(`⚠️ 找不到DOM元素: ${msg.id}`);
+            }
+          }
+        }
+      });
+      
       // ✅ 清理旧会话的DOM引用，防止竞态条件
       markdownRefs.current.clear()
       
@@ -304,14 +394,36 @@ function App() {
               return null;
             }
             
+            const messageContent = msg.progress_content || msg.content || '';
+            
+            // 🔍 调试：打印每条消息的内容
+            console.log(`📝 处理历史消息 ${msg.id}:`, {
+              role: msg.role,
+              contentLength: messageContent.length,
+              contentPreview: messageContent.substring(0, 100),
+              hasHtmlContent: !!msg.html_content,
+              isRendered: msg.is_rendered
+            });
+            
+            // 🔑 关键修复：优先使用全局缓存的渲染状态
+            const globalCachedState = globalRenderedCache.current.get(msg.id);
+            const useGlobalCache = globalCachedState && globalCachedState.is_rendered && globalCachedState.html_content;
+            
+            if (useGlobalCache) {
+              console.log(`🔄 使用全局缓存的渲染状态: ${msg.id} (避免重新渲染)`);
+            }
+            
             return {
               id: msg.id,
               type: msg.role === 'assistant' ? 'bot' : 'user',
-              content: msg.content,
+              // ✅ 修复历史消息显示问题：优先使用progress_content，回退到content
+              content: messageContent,
               timestamp: new Date(msg.timestamp),
               session_id: msg.session_id,  // ✅ 约束2：保持会话ID
-              html_content: msg.html_content,
-              is_rendered: msg.is_rendered
+              html_content: useGlobalCache ? globalCachedState.html_content : msg.html_content,
+              is_rendered: useGlobalCache ? globalCachedState.is_rendered : msg.is_rendered,
+              // 🔑 关键修复：历史消息不应该被标记为流式消息
+              is_streaming: false  // 历史消息始终为静态消息
             };
           })
           .filter((msg: Message | null): msg is Message => msg !== null);
@@ -319,17 +431,9 @@ function App() {
         // ✅ 约束1：使用样式保护更新消息
         setMessages(convertedMessages);
         
-        // 延迟处理未渲染的历史消息
-        setTimeout(() => {
-          const unrenderedMessages = convertedMessages.filter(
-            (msg: Message) => msg.type === 'bot' && !msg.is_rendered && msg.content && msg.content.length > 10
-          );
-          
-          unrenderedMessages.forEach((msg: Message) => {
-            // 处理未渲染的历史消息
-            extractAndSaveHTML(msg.id, msg.session_id!);
-          });
-        }, 1000);
+        // 🔑 关键修复：历史消息不进行HTML提取，直接使用MessageDisplay渲染
+        // 历史消息的HTML提取会导致异步渲染问题，直接跳过
+        console.log('📋 历史消息加载完成，跳过HTML提取，直接使用MessageDisplay渲染');
         
         // 统计渲染优化情况
         const renderedCount = convertedMessages.filter((msg: Message) => msg.is_rendered && msg.html_content).length;
@@ -792,37 +896,15 @@ function App() {
                               messageId={message.id}
                               isStreaming={isLoading && message.id.includes('temp')}
                               initialContent={message.content}
-                              ref={(ref) => {
+                              ref={(ref: StreamingMessageDisplayRef | null) => {
                                 if (ref && message.id) {
                                   // 🔑 关键修复：确保ref始终使用最新的消息ID
-                                  // StreamingMessageDisplay ref注册
-                                  
-                                  // 调试：显示当前所有ref映射
-                                  const currentKeys = Array.from(streamingRefs.current.keys())
-                                  
-                                  // 如果是从临时ID更新过来的，需要先清理旧的映射
-                                  if (message.id.startsWith('temp-')) {
-                                    // 临时消息，直接设置映射
-                                    streamingRefs.current.set(message.id, ref)
-                                  } else {
-                                    // 真实消息ID，确保映射正确
-                                    const existingKeys = Array.from(streamingRefs.current.keys())
-                                    const tempKeys = existingKeys.filter(key => key.startsWith('temp-'))
-                                    
-                                    // 清理所有临时key映射，只保留真实ID映射
-                                    tempKeys.forEach(tempKey => {
-                                      if (streamingRefs.current.has(tempKey)) {
-                                        streamingRefs.current.delete(tempKey)
-                                      }
-                                    })
-                                    
-                                    streamingRefs.current.set(message.id, ref)
-                                  }
-                                  
-                                  // 调试：显示更新后的ref映射
-                                  const updatedKeys = Array.from(streamingRefs.current.keys())
+                                  streamingRefs.current.set(message.id, ref)
                                 } else {
-                                  console.warn(`⚠️ ref回调执行但参数无效: ref=${!!ref}, messageId=${message.id}`)
+                                  // ✅ 修复ref回调问题：当ref为null时清理映射，但不报错
+                                  if (!ref && message.id) {
+                                    streamingRefs.current.delete(message.id)
+                                  }
                                 }
                               }}
                               onComplete={() => {
@@ -844,32 +926,85 @@ function App() {
                                 // 可以在这里添加额外的处理逻辑
                               }}
                             />
-                          ) : message.is_rendered && message.html_content ? (
-                            /* 已渲染的静态消息使用缓存的HTML */
-                            <div data-message-id={message.id} dangerouslySetInnerHTML={{ __html: message.html_content }} />
-                          ) : (
-                            /* 未渲染的静态消息使用 MessageDisplay */
-                            <div 
-                              data-message-id={message.id}
-                              ref={(el) => {
-                                if (el && message.id) {
-                                  markdownRefs.current.set(message.id, el)
-                                  // 只为静态消息提取HTML
-                                  if (message.session_id && !isLoading && message.content && 
-                                      !message.id.startsWith('error-') && !message.id.startsWith('temp-') &&
-                                      !message.is_streaming) {
-                                    setTimeout(() => {
-                                      extractAndSaveHTML(message.id, message.session_id!)
-                                    }, 100)
-                                  }
-                                }
-                              }}
-                            >
-                              {message.content && (
-                                <>
-                                  <MessageDisplay 
-                                    content={message.content} 
-                                    isStreaming={false}
+                          ) : (() => {
+            // 🔑 关键修复：优先使用全局缓存，然后是后端状态，最后重新渲染
+            const globalCachedState = globalRenderedCache.current.get(message.id);
+            const useGlobalCache = globalCachedState && globalCachedState.is_rendered && globalCachedState.html_content && hasValidHTMLContent(globalCachedState.html_content);
+            
+            if (useGlobalCache) {
+              // 使用全局缓存的HTML
+              return <div data-message-id={message.id} dangerouslySetInnerHTML={{ __html: globalCachedState.html_content }} />;
+            } else if (message.is_rendered && message.html_content && hasValidHTMLContent(message.html_content)) {
+              // 使用后端返回的HTML
+              return <div data-message-id={message.id} dangerouslySetInnerHTML={{ __html: message.html_content }} />;
+            } else {
+              // 重新渲染
+              return (
+                <div 
+                  data-message-id={message.id}
+                  ref={(el) => {
+                    if (el && message.id) {
+                      markdownRefs.current.set(message.id, el)
+                    }
+                  }}
+                >
+                  {message.content && (
+                    <>
+                      <MessageDisplay 
+                        content={message.content} 
+                        isStreaming={false}
+                        messageId={message.id}
+                        onHTMLExtracted={(messageId, html) => {
+                          // 🔑 只为未渲染的消息保存HTML
+                          if (message.session_id && html && html.trim() && !message.is_rendered) {
+                            console.log(`🎯 收到未渲染消息的HTML提取回调: ${messageId}, HTML长度: ${html.length}`);
+                            
+                            // 🔑 关键修复：立即保存到全局缓存，确保用户切换会话时能立即看到
+                            globalRenderedCache.current.set(messageId, {
+                              html_content: html,
+                              is_rendered: true
+                            });
+                            console.log(`💾 MessageDisplay HTML立即保存到全局缓存: ${messageId}`);
+                            
+                            // 直接调用后端API保存HTML
+                            fetch(`http://localhost:8443/api/chat/message/${messageId}/render`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                session_id: message.session_id,
+                                html_content: html,
+                                render_time_ms: 0
+                              })
+                            }).then(response => {
+                              if (response.ok) {
+                                console.log(`✅ HTML保存成功: ${messageId}`);
+                                
+                                // 🔑 关键修复：同时更新本地消息状态和全局缓存
+                                setMessages(prev => prev.map(msg => 
+                                  msg.id === messageId 
+                                    ? { ...msg, html_content: html, is_rendered: true }
+                                    : msg
+                                ));
+                                
+                                // 更新全局渲染缓存
+                                globalRenderedCache.current.set(messageId, {
+                                  html_content: html,
+                                  is_rendered: true
+                                });
+                                console.log(`💾 HTML同步到全局缓存: ${messageId}`);
+                                
+                                // 等待后端写入完成
+                                setTimeout(() => {
+                                  console.log(`💾 后端数据同步完成: ${messageId}`);
+                                }, 100);
+                              } else {
+                                console.error(`❌ HTML保存失败: ${response.status}`);
+                              }
+                            }).catch(error => {
+                              console.error(`❌ HTML保存错误:`, error);
+                            });
+                                      }
+                                    }}
                                   />
                                 </>
                               )}
@@ -881,7 +1016,9 @@ function App() {
                                 </div>
                               )}
                             </div>
-                          )}
+                            );
+                          }
+                        })()}
                         </div>
                       </div>
                     </div>
