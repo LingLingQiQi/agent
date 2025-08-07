@@ -698,7 +698,7 @@ function App() {
               <h3 className="text-sm font-medium text-text-secondary">Your conversations</h3>
               <button 
                 onClick={clearAllSessions}
-                className="text-blue-primary text-sm hover:text-blue-600 transition-colors bg-white"
+                className="text-blue-primary text-sm hover:text-blue-600 transition-all duration-200 bg-white border-2 border-transparent hover:border-blue-200 rounded-md px-3 py-1.5 focus:outline-none focus:border-blue-primary active:border-blue-primary"
               >
                 Clear All
               </button>
