@@ -42,7 +42,7 @@ export const StreamingMessageDisplay = forwardRef<StreamingMessageDisplayRef, St
     // 暴露给父组件的方法
     useImperativeHandle(ref, () => ({
       pushChunk: (chunk: string) => {
-        console.log(`📝 StreamingMessageDisplay.pushChunk: 消息${messageId}, 内容块: "${chunk.substring(0, 50)}..."`)
+        // 推送内容块
         
         // 使用 MarkdownCMD 的 push 方法增量添加内容
         markdownRef.current?.push(chunk, 'answer')
@@ -55,23 +55,23 @@ export const StreamingMessageDisplay = forwardRef<StreamingMessageDisplayRef, St
       },
       
       clear: () => {
-        console.log(`🔄 StreamingMessageDisplay.clear: 消息${messageId}`)
+        // 清空内容
         markdownRef.current?.clear()
         setTotalContent('')
       },
       
       start: () => {
-        console.log(`▶️ StreamingMessageDisplay.start: 消息${messageId}`)
+        // 开始渲染
         markdownRef.current?.start()
       },
       
       stop: () => {
-        console.log(`⏸️ StreamingMessageDisplay.stop: 消息${messageId}`)
+        // 暂停渲染
         markdownRef.current?.stop()
       },
       
       restart: () => {
-        console.log(`🔄 StreamingMessageDisplay.restart: 消息${messageId}`)
+        // 重新开始渲染
         markdownRef.current?.restart()
       },
       
@@ -83,7 +83,7 @@ export const StreamingMessageDisplay = forwardRef<StreamingMessageDisplayRef, St
     // 初始化内容
     useEffect(() => {
       if (initialContent && markdownRef.current) {
-        console.log(`🎯 StreamingMessageDisplay 初始化内容: 消息${messageId}, 长度${initialContent.length}`)
+        // 初始化内容
         markdownRef.current.clear()
         markdownRef.current.push(initialContent, 'answer')
         setTotalContent(initialContent)
@@ -92,13 +92,13 @@ export const StreamingMessageDisplay = forwardRef<StreamingMessageDisplayRef, St
 
     // 处理打字完成事件
     const handleEnd = (data: any) => {
-      console.log(`✅ StreamingMessageDisplay 打字完成: 消息${messageId}`, data)
+      // 打字完成
       onComplete?.()
     }
 
     // 处理打字开始事件
     const handleStart = (data: any) => {
-      console.log(`🚀 StreamingMessageDisplay 开始打字: 消息${messageId}`, data)
+      // 打字开始
     }
 
     return (
@@ -110,9 +110,8 @@ export const StreamingMessageDisplay = forwardRef<StreamingMessageDisplayRef, St
           autoStartTyping={true}             // 自动开始打字
           onStart={handleStart}              // 开始回调
           onEnd={handleEnd}                  // 完成回调
-          onTypedChar={(data) => {
+          onTypedChar={() => {
             // 可选：添加打字进度追踪
-            console.log(`⌨️ 打字进度: ${Math.round(data.percent)}% - "${data.currentChar}"`)
           }}
         />
       </div>

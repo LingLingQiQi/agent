@@ -37,18 +37,18 @@ function App() {
 
   // 提取ds-markdown渲染的HTML并保存到后端
   const extractAndSaveHTML = async (messageId: string, sessionId: string) => {
-    console.log(`🔍 开始HTML提取: 消息${messageId}, 会话${sessionId}`)
+    // HTML提取开始
     
     // ✅ 跳过错误消息的HTML提取
     if (messageId.startsWith('error-') || messageId.startsWith('temp-') || messageId.startsWith('suggestion-')) {
-      console.log(`⏭️ 跳过临时/错误/建议消息的HTML提取: ${messageId}`)
+      // 跳过特殊消息类型
       return
     }
     
     // 防止重复提取
     const message = messages.find(msg => msg.id === messageId)
     if (message && message.is_rendered) {
-      console.log(`⏭️ 消息 ${messageId} 已渲染过，跳过HTML提取`)
+      // 消息已渲染，跳过
       return
     }
     
@@ -74,7 +74,7 @@ function App() {
         console.warn(`⚠️ 消息内容不完整: 消息${messageId}内容"${trimmedContent}"，跳过HTML提取`)
         // 延迟重试，给更多内容累积的时间
         setTimeout(() => {
-          console.log(`🔄 重试HTML提取: 消息 ${messageId}`)
+            // 重试HTML提取
           extractAndSaveHTML(messageId, sessionId)
         }, 2000) // 增加延迟时间
         return
@@ -103,12 +103,12 @@ function App() {
       }
     }
     
-    console.log(`🔍 正在提取HTML: 消息 ${messageId}, DOM元素存在: ${!!markdownElement}`)
+    // 提取HTML中...
     
     if (markdownElement) {
       try {
         const htmlContent = markdownElement.innerHTML
-        console.log(`📝 提取到HTML内容: ${htmlContent.length} 字符`)
+        // HTML内容已提取
         
         // ✅ 优化HTML内容完整性判断，避免对短内容的误判
         const isComplete = (
@@ -133,7 +133,7 @@ function App() {
           })
           
           if (response.ok) {
-            console.log(`✅ HTML内容已保存: 消息 ${messageId}, ${htmlContent.length} 字符`)
+            // HTML已保存
             
             // 更新本地消息状态
             setMessages(prev => prev.map(msg => 
@@ -145,12 +145,12 @@ function App() {
             console.error(`❌ 保存HTML失败: ${response.status}`)
           }
         } else {
-          console.warn(`⚠️ HTML内容不完整或为空: 消息 ${messageId}, 长度${htmlContent.length}`)
+          // HTML内容不完整，延迟重试
           
           // 如果内容不完整，延迟重试
           if (message && message.content && message.content.length > 0) {
             setTimeout(() => {
-              console.log(`🔄 重试提取HTML: 消息 ${messageId}`)
+              // 重试提取HTML
               extractAndSaveHTML(messageId, sessionId)
             }, 1000)
           }
@@ -159,11 +159,11 @@ function App() {
         console.error(`❌ 提取HTML失败:`, error)
       }
     } else {
-      console.warn(`⚠️ 未找到DOM元素: 消息 ${messageId}, 尝试重试...`)
+      // DOM元素未找到，延迟重试
       
       // 如果找不到DOM元素，延迟重试
       setTimeout(() => {
-        console.log(`🔄 重试查找DOM元素: 消息 ${messageId}`)
+        // 重试查找DOM元素
         extractAndSaveHTML(messageId, sessionId)
       }, 500)
     }
@@ -182,7 +182,7 @@ function App() {
     if (latestBotMessage && latestBotMessage.session_id && !isLoading) {
       // 延迟提取，确保ds-markdown渲染完成
       const timeoutId = setTimeout(() => {
-        console.log(`⏰ useEffect触发HTML提取: 消息${latestBotMessage.id}, 会话${latestBotMessage.session_id}`)
+        // 自动触发HTML提取
         extractAndSaveHTML(latestBotMessage.id, latestBotMessage.session_id!)
       }, 800) // 增加延迟确保渲染完成
       
@@ -221,7 +221,7 @@ function App() {
         setMessages([])
         await loadSessions()
         
-        console.log(`✅ 新会话创建成功: ${newSessionId}`)
+        // 新会话创建成功
       }
     } catch (error) {
       console.error('创建会话失败:', error)
@@ -300,7 +300,7 @@ function App() {
           .map((msg: any) => {
             // 验证消息属于目标会话
             if (msg.session_id !== sessionId) {
-              console.warn(`⚠️ 消息 ${msg.id} 不属于会话 ${sessionId}, 跳过`);
+              // 消息不属于当前会话，跳过
               return null;
             }
             
@@ -326,7 +326,7 @@ function App() {
           );
           
           unrenderedMessages.forEach((msg: Message) => {
-            console.log(`🔄 处理未渲染的历史消息: ${msg.id}`);
+            // 处理未渲染的历史消息
             extractAndSaveHTML(msg.id, msg.session_id!);
           });
         }, 1000);
@@ -335,9 +335,9 @@ function App() {
         const renderedCount = convertedMessages.filter((msg: Message) => msg.is_rendered && msg.html_content).length;
         const totalAssistantMessages = convertedMessages.filter((msg: Message) => msg.type === 'bot').length;
         if (totalAssistantMessages > 0) {
-          console.log(`✅ 会话切换完成: ${sessionId}, ${convertedMessages.length} 条消息 (${renderedCount}/${totalAssistantMessages} 助手消息使用缓存渲染)`);
+          // 会话切换完成
         } else {
-          console.log(`✅ 会话切换完成: ${sessionId}, ${convertedMessages.length} 条消息`);
+          // 会话切换完成
         }
       }
     } catch (error) {
@@ -358,7 +358,7 @@ function App() {
           const data = await response.json()
           sessionId = data.id || data.session_id
           // ✅ 立即设置当前会话状态，确保后续逻辑使用正确的会话ID
-          console.log(`🆕 创建新会话并设置为当前: ${sessionId}`)
+          // 创建新会话
           setCurrentSession(sessionId)
           await sessionRenderManager.switchSession(sessionId)
           await loadSessions()
@@ -385,7 +385,7 @@ function App() {
     setIsLoading(true)
 
     // ✅ 使用刚创建或获取的sessionId，而不是依赖可能未更新的currentSession状态
-    console.log(`📝 当前使用的会话ID: ${sessionId}`)
+    // 当前会话状态
     
     // ✅ 确保会话管理器知道当前活跃会话
     if (sessionId) {
@@ -467,9 +467,7 @@ function App() {
                 if (line.startsWith('data: ') && line.includes('event: status')) {
                   console.log(`📊 收到状态消息: ${parsed.message || parsed.type}`)
                   if (parsed.type === 'processing_start') {
-                    console.log('🚀 服务器开始处理请求')
                   } else if (parsed.type === 'processing_complete') {
-                    console.log('✅ 服务器处理完成')
                   }
                   continue
                 }
@@ -495,29 +493,16 @@ function App() {
                   // ✅ 第一次收到数据时，获取后端返回的真实message_id
                   if (!backendMessageId) {
                     backendMessageId = parsed.message_id;
-                    console.log(`📝 获取后端消息ID: ${backendMessageId}`);
                   }
                   
-                  // ✅ 增强日志：详细显示接收的数据
-                  console.log(`📝 接收SSE数据详情:`, {
-                    messageId: parsed.message_id,
-                    content: parsed.content,
-                    contentLength: parsed.content ? parsed.content.length : 0,
-                    phase: parsed.phase,
-                    hasContent: !!parsed.content,
-                    contentPreview: parsed.content ? parsed.content.substring(0, 50) + (parsed.content.length > 50 ? '...' : '') : '[空内容]'
-                  });
+                  // 处理有效内容
                   
                   // 🎯 关键修复：只有当内容不为空时才进行处理，避免空内容干扰
                   if (parsed.content && parsed.content.length > 0) {
                     // ✅ 第一次收到数据时，获取后端返回的真实message_id
                     if (!backendMessageId) {
                       backendMessageId = parsed.message_id;
-                      console.log(`📝 获取后端消息ID: ${backendMessageId}`);
-                      
-                      // 🔑 关键修复：不更新消息ID，保持使用临时ID避免React组件重新渲染
                       // 只记录后端ID用于会话管理，UI组件继续使用临时ID
-                      console.log(`🔄 保持使用临时ID作为消息标识: ${tempMessageObj?.id}`);
                     }
                     
                     // 🚀 使用StreamingMessageDisplay的push方法处理流式内容
@@ -528,10 +513,9 @@ function App() {
                     }
                     
                     if (streamingRef) {
-                      console.log(`📡 通过StreamingMessageDisplay处理内容块: ${parsed.content.length} 字符`);
                       streamingRef.pushChunk(parsed.content);
                     } else {
-                      console.warn(`⚠️ 未找到StreamingMessageDisplay ref，尝试的ID: 临时=${tempMessageObj?.id}, 后端=${backendMessageId}`);
+                      console.warn(`StreamingMessageDisplay ref未找到: ${tempMessageObj?.id || backendMessageId}`);
                       
                       // 降级处理：如果ref未找到，使用传统方式累积到content字段
                       const targetId = tempMessageObj?.id || backendMessageId;
@@ -551,12 +535,6 @@ function App() {
                       sessionRenderManager.handleStreamChunk(sessionId, backendMessageId, parsed.content);
                     }
                     
-                    console.log(`📝 流式内容处理完成:`, {
-                      messageId: backendMessageId,
-                      chunkLength: parsed.content.length,
-                      chunkPreview: parsed.content.substring(0, 50) + (parsed.content.length > 50 ? '...' : ''),
-                      hasStreamingRef: !!streamingRefs.current.get(backendMessageId)
-                    });
                   } else {
                     // 空内容，可能是完成信号
                     console.log(`📝 接收到空内容，可能是完成信号，phase: ${parsed.phase}`);
@@ -586,7 +564,6 @@ function App() {
           ));
           
           // ✅ HTML提取将由StreamingMessageDisplay的onComplete回调处理
-          console.log(`✅ 流式渲染完成: sessionId: ${sessionId}, messageId: ${backendMessageId}`);
         }
         
         // 如果当前会话的标题是默认标题，则更新为第一条消息
@@ -818,17 +795,15 @@ function App() {
                               ref={(ref) => {
                                 if (ref && message.id) {
                                   // 🔑 关键修复：确保ref始终使用最新的消息ID
-                                  console.log(`🔗 注册StreamingMessageDisplay ref: ${message.id}, ref存在: ${!!ref}`)
+                                  // StreamingMessageDisplay ref注册
                                   
                                   // 调试：显示当前所有ref映射
                                   const currentKeys = Array.from(streamingRefs.current.keys())
-                                  console.log(`📋 当前ref映射keys: [${currentKeys.join(', ')}]`)
                                   
                                   // 如果是从临时ID更新过来的，需要先清理旧的映射
                                   if (message.id.startsWith('temp-')) {
                                     // 临时消息，直接设置映射
                                     streamingRefs.current.set(message.id, ref)
-                                    console.log(`🆔 设置临时ID映射: ${message.id}`)
                                   } else {
                                     // 真实消息ID，确保映射正确
                                     const existingKeys = Array.from(streamingRefs.current.keys())
@@ -837,24 +812,20 @@ function App() {
                                     // 清理所有临时key映射，只保留真实ID映射
                                     tempKeys.forEach(tempKey => {
                                       if (streamingRefs.current.has(tempKey)) {
-                                        console.log(`🧹 清理临时ref映射: ${tempKey}`)
                                         streamingRefs.current.delete(tempKey)
                                       }
                                     })
                                     
                                     streamingRefs.current.set(message.id, ref)
-                                    console.log(`✅ 设置真实ID的ref映射: ${message.id}`)
                                   }
                                   
                                   // 调试：显示更新后的ref映射
                                   const updatedKeys = Array.from(streamingRefs.current.keys())
-                                  console.log(`📋 更新后ref映射keys: [${updatedKeys.join(', ')}]`)
                                 } else {
                                   console.warn(`⚠️ ref回调执行但参数无效: ref=${!!ref}, messageId=${message.id}`)
                                 }
                               }}
                               onComplete={() => {
-                                console.log(`✅ 流式消息渲染完成: ${message.id}`)
                                 // 更新消息状态
                                 setMessages(prev => prev.map(msg => 
                                   msg.id === message.id 
@@ -870,7 +841,6 @@ function App() {
                                 }
                               }}
                               onChunkAdded={(chunk) => {
-                                console.log(`📋 流式块添加: ${message.id}, 块大小: ${chunk.length}`)
                                 // 可以在这里添加额外的处理逻辑
                               }}
                             />
@@ -889,7 +859,6 @@ function App() {
                                       !message.id.startsWith('error-') && !message.id.startsWith('temp-') &&
                                       !message.is_streaming) {
                                     setTimeout(() => {
-                                      console.log(`📋 静态消息ref回调触发HTML提取: 消息${message.id}, 会话${message.session_id}`)
                                       extractAndSaveHTML(message.id, message.session_id!)
                                     }, 100)
                                   }
@@ -898,7 +867,6 @@ function App() {
                             >
                               {message.content && (
                                 <>
-                                  {console.log(`🎨 渲染静态MessageDisplay: 消息${message.id}, 内容长度${message.content.length}, 前50字符: "${message.content.substring(0, 50)}..."`)}
                                   <MessageDisplay 
                                     content={message.content} 
                                     isStreaming={false}
