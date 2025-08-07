@@ -594,9 +594,33 @@ function App() {
                 
                 // 处理正常的聊天消息
                 if (parsed.content !== undefined && parsed.message_id) {
-                  // ✅ 第一次收到数据时，获取后端返回的真实message_id
+                  // ✅ 第一次收到数据时，获取后端返回的真实message_id并立即更新消息ID
                   if (!backendMessageId) {
                     backendMessageId = parsed.message_id;
+                    
+                    // 🔑 关键修复：立即将临时消息的ID更新为后端真实ID
+                    setMessages(prev => prev.map(msg => 
+                      msg.id === tempMessageObj?.id 
+                        ? { ...msg, id: backendMessageId }
+                        : msg
+                    ));
+                    
+                    // 🔑 关键修复：同时更新StreamingMessageDisplay的ref映射
+                    if (tempMessageObj?.id) {
+                      const oldRef = streamingRefs.current.get(tempMessageObj.id);
+                      if (oldRef) {
+                        streamingRefs.current.set(backendMessageId, oldRef);
+                        streamingRefs.current.delete(tempMessageObj.id);
+                        console.log(`🔄 StreamingRef映射已更新: ${tempMessageObj.id} -> ${backendMessageId}`);
+                      }
+                    }
+                    
+                    // 更新临时消息对象的ID，确保后续逻辑使用正确ID
+                    if (tempMessageObj) {
+                      tempMessageObj.id = backendMessageId;
+                    }
+                    
+                    console.log(`🔄 消息ID已更新: 临时ID -> ${backendMessageId}`);
                   }
                   
                   // 处理有效内容
@@ -610,21 +634,32 @@ function App() {
                     }
                     
                     // 🚀 使用StreamingMessageDisplay的push方法处理流式内容
-                    // 🔑 关键修复：优先使用临时ID查找ref，降级使用后端ID
-                    let streamingRef = streamingRefs.current.get(tempMessageObj?.id); // 先尝试临时ID
-                    if (!streamingRef && backendMessageId) {
-                      streamingRef = streamingRefs.current.get(backendMessageId); // 后备：尝试后端ID
+                    // 🔑 关键修复：使用后端真实ID查找ref（因为消息ID已更新）
+                    let streamingRef = streamingRefs.current.get(backendMessageId);
+                    if (!streamingRef && tempMessageObj?.id) {
+                      // 降级：如果用后端ID找不到，尝试用原始临时ID（兼容性处理）
+                      streamingRef = streamingRefs.current.get(tempMessageObj.id);
                     }
                     
                     if (streamingRef) {
                       streamingRef.pushChunk(parsed.content);
+                      
+                      // 🔑 关键修复：同时更新消息的content字段，确保消息内容同步
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === backendMessageId
+                          ? { 
+                              ...msg, 
+                              content: (msg.content || '') + parsed.content,
+                              streaming_chunks: [...(msg.streaming_chunks || []), parsed.content]
+                            }
+                          : msg
+                      ));
                     } else {
-                      console.warn(`StreamingMessageDisplay ref未找到: ${tempMessageObj?.id || backendMessageId}`);
+                      console.warn(`StreamingMessageDisplay ref未找到: ${backendMessageId}`);
                       
                       // 降级处理：如果ref未找到，使用传统方式累积到content字段
-                      const targetId = tempMessageObj?.id || backendMessageId;
                       setMessages(prev => prev.map(msg => 
-                        msg.id === targetId
+                        msg.id === backendMessageId
                           ? { 
                               ...msg, 
                               content: (msg.content || '') + parsed.content,
@@ -668,6 +703,131 @@ function App() {
           ));
           
           // ✅ HTML提取将由StreamingMessageDisplay的onComplete回调处理
+          
+          // 🔑 关键修复：流式传输完成后立即提取HTML，确保第一次切换就能看到渲染结果
+          setTimeout(async () => {
+            console.log(`🎯 流式传输完成，开始提取HTML: ${backendMessageId}`);
+            
+            // 🔑 关键修复：从StreamingMessageDisplay ref获取完整内容，确保内容完整性
+            const streamingRef = streamingRefs.current.get(backendMessageId);
+            const fullContent = streamingRef?.getContent() || '';
+            
+            console.log(`📝 从StreamingRef获取完整内容: ${backendMessageId}, 长度: ${fullContent.length}`);
+            
+            // 🔑 关键修复：先更新消息内容为完整内容，确保content字段包含所有流式数据
+            setMessages(prev => prev.map(msg => 
+              msg.id === backendMessageId 
+                ? { ...msg, content: fullContent }
+                : msg
+            ));
+            
+            // 等待内容更新和DOM重新渲染
+            setTimeout(async () => {
+              // 尝试从StreamingMessageDisplay DOM中提取HTML
+              const streamingElement = document.querySelector(`[data-message-id="${backendMessageId}"]`);
+              if (streamingElement) {
+                const htmlContent = streamingElement.innerHTML;
+                const textContent = streamingElement.textContent || '';
+                
+                console.log(`🔍 DOM内容检查: textLength=${textContent.length}, fullContentLength=${fullContent.length}`);
+                
+                // 检查HTML内容是否完整 - 基于完整内容长度进行验证
+                const contentCompletenesss = fullContent.length > 0 ? textContent.length / fullContent.length : 0;
+                const isComplete = (
+                  htmlContent && 
+                  textContent.length > 20 && 
+                  htmlContent.includes('ds-markdown-answer') &&
+                  contentCompletenesss >= 0.8 // 至少包含80%的原始内容
+                );
+                
+                if (isComplete) {
+                  console.log(`🎯 成功从流式消息提取完整HTML: ${backendMessageId}, HTML长度: ${htmlContent.length}, 完整度: ${(contentCompletenesss * 100).toFixed(1)}%`);
+                  
+                  // 立即保存到全局缓存
+                  globalRenderedCache.current.set(backendMessageId, {
+                    html_content: htmlContent,
+                    is_rendered: true
+                  });
+                  
+                  // 保存到后端
+                  try {
+                    const response = await fetch(`http://localhost:8443/api/chat/message/${backendMessageId}/render`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        session_id: sessionId,
+                        html_content: htmlContent,
+                        render_time_ms: 0
+                      })
+                    });
+                    
+                    if (response.ok) {
+                      console.log(`✅ 流式消息完整HTML保存成功: ${backendMessageId}`);
+                      
+                      // 更新本地消息状态
+                      setMessages(prev => prev.map(msg => 
+                        msg.id === backendMessageId 
+                          ? { ...msg, html_content: htmlContent, is_rendered: true }
+                          : msg
+                      ));
+                    } else {
+                      console.error(`❌ 流式消息HTML保存失败: ${response.status}`);
+                    }
+                  } catch (error) {
+                    console.error(`❌ 流式消息HTML保存错误:`, error);
+                  }
+                } else {
+                  console.warn(`⚠️ 流式消息HTML内容不完整: ${backendMessageId}, textLength: ${textContent.length}, 完整度: ${(contentCompletenesss * 100).toFixed(1)}%, 需要重试`);
+                  
+                  // 内容不完整，延迟重试一次
+                  setTimeout(async () => {
+                    console.log(`🔄 重试提取HTML: ${backendMessageId}`);
+                    // 重试逻辑：再次检查DOM内容
+                    const retryElement = document.querySelector(`[data-message-id="${backendMessageId}"]`);
+                    if (retryElement) {
+                      const retryHtml = retryElement.innerHTML;
+                      const retryText = retryElement.textContent || '';
+                      const retryCompleteness = fullContent.length > 0 ? retryText.length / fullContent.length : 0;
+                      
+                      if (retryHtml && retryText.length > 20 && retryHtml.includes('ds-markdown-answer') && retryCompleteness >= 0.7) {
+                        console.log(`🎯 重试成功提取HTML: ${backendMessageId}, 完整度: ${(retryCompleteness * 100).toFixed(1)}%`);
+                        
+                        // 保存重试结果
+                        globalRenderedCache.current.set(backendMessageId, {
+                          html_content: retryHtml,
+                          is_rendered: true
+                        });
+                        
+                        // 异步保存到后端
+                        fetch(`http://localhost:8443/api/chat/message/${backendMessageId}/render`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            session_id: sessionId,
+                            html_content: retryHtml,
+                            render_time_ms: 0
+                          })
+                        }).then(response => {
+                          if (response.ok) {
+                            console.log(`✅ 重试HTML保存成功: ${backendMessageId}`);
+                            setMessages(prev => prev.map(msg => 
+                              msg.id === backendMessageId 
+                                ? { ...msg, html_content: retryHtml, is_rendered: true }
+                                : msg
+                            ));
+                          }
+                        }).catch(error => console.error(`❌ 重试HTML保存失败:`, error));
+                      } else {
+                        console.warn(`⚠️ 重试后仍然不完整: ${backendMessageId}, 放弃HTML提取`);
+                      }
+                    }
+                  }, 2000); // 2秒后重试
+                }
+              } else {
+                console.warn(`⚠️ 找不到流式消息DOM元素: ${backendMessageId}`);
+              }
+            }, 500); // 等待500ms让DOM更新
+          }, 1500); // 增加初始等待时间到1.5秒
         }
         
         // 如果当前会话的标题是默认标题，则更新为第一条消息
