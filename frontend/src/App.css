@@ -224,13 +224,25 @@ body {
 
 /* 引用样式 - 优化连续引用块的显示 */
 .markdown-content .ds-markdown blockquote {
-  border-left: 4px solid #d1d5db !important;
+  border-left: 2px solid #d1d5db !important; /* 竖线变细50%：从4px改为2px */
   padding-left: 1rem !important;
   font-style: italic !important;
-  color: #6b7280 !important;
+  color: #9ca3af !important; /* 字体颜色更灰20%：从#6b7280改为#9ca3af */
   margin: 0 !important; /* 移除默认边距，让相邻引用块连接 */
   padding-top: 0.5rem !important;
   padding-bottom: 0.5rem !important;
+  font-size: 0.8em !important; /* 字体大小调小20%：原来100%，现在80% */
+  line-height: 1.3 !important; /* 调小行间距，从默认1.6改为1.3 */
+}
+
+/* 确保引用块内的所有元素都应用灰色 */
+.markdown-content .ds-markdown blockquote *,
+.markdown-content .ds-markdown blockquote p,
+.markdown-content .ds-markdown blockquote span,
+.markdown-content .ds-markdown blockquote strong,
+.markdown-content .ds-markdown blockquote em {
+  color: #9ca3af !important; /* 统一应用灰色 */
+  line-height: 1.3 !important; /* 统一行间距 */
 }
 
 /* 相邻引用块之间的无缝连接 */

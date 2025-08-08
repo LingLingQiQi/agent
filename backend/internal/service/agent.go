@@ -1176,7 +1176,7 @@ func createScanTodoListLambda(sessionID string, progressManager *ProgressManager
 
 			if incompleteTodo != "" {
 				// 找到未完成的任务，返回该任务作为用户查询
-				progressManager.SendEvent("node_complete", "\n\n> ##### ⚡️ 开始执行: \n\n", "> "+incompleteTodo+"\n\n",
+				progressManager.SendEvent("node_complete", "> ##### ⚡️ 开始执行: \n\n", "> "+incompleteTodo+"\n\n",
 					map[string]interface{}{"content_length": len(input.Content)}, nil)
 				logger.Infof("Found incomplete task to execute: %s", incompleteTodo)
 				resultMessage = &schema.Message{
