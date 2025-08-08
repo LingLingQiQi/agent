@@ -934,7 +934,7 @@ function App() {
           </button>
           
           {/* Conversations Section */}
-          <div className="mb-6 flex-1">
+          <div className="flex-1 flex flex-col min-h-0">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-medium text-text-secondary">Your conversations</h3>
               <button 
@@ -946,7 +946,7 @@ function App() {
             </div>
             
             {/* Conversation List */}
-            <div className="bg-gray-50 rounded-lg p-2 space-y-1 flex-1 overflow-y-auto">
+            <div className="bg-gray-50 rounded-lg p-2 space-y-1 flex-1 overflow-y-auto min-h-0">
               {sessions.map((session) => (
                 <div 
                   key={session.id}
