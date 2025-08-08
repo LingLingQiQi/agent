@@ -3,7 +3,9 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -72,17 +74,63 @@ func extractErrorMessage(result *mcp.CallToolResult) string {
 	}
 
 	// 尝试从Content中提取错误信息
+	var originalError string
 	if len(result.Content) > 0 {
 		for _, content := range result.Content {
 			// 尝试转换为TextContent并提取Text字段
 			if textContent, ok := content.(*mcp.TextContent); ok && textContent.Text != "" {
-				return textContent.Text
+				originalError = textContent.Text
+				break
 			}
 		}
 	}
 
-	// 如果没有具体的错误信息，返回通用错误消息
-	return "MCP工具执行失败"
+	// 如果没有具体的错误信息，使用通用错误消息
+	if originalError == "" {
+		originalError = "MCP工具执行失败"
+	}
+
+	// 检查是否为路径相关错误并提供增强的错误消息
+	return enhanceErrorMessage(originalError)
+}
+
+// enhanceErrorMessage 增强错误消息，提供更清晰的指导
+func enhanceErrorMessage(originalError string) string {
+	// 检查是否为路径相关错误
+	if isPathRelatedError(originalError) {
+		return fmt.Sprintf(`%s
+
+🚨 路径操作错误诊断：
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Desktop Commander 只能在指定工作目录内操作                      ┃
+┃ 工作目录：~/go/src/desktop-commander/                          ┃
+┃ 绝对路径：/Users/bytedance/go/src/desktop-commander/          ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+💡 解决方案：
+✅ 使用相对路径：create_directory("my-project")
+✅ 使用工作目录内的绝对路径：create_directory("/Users/bytedance/go/src/desktop-commander/my-project")
+✅ 创建子目录：create_directory("src/main")
+
+❌ 避免这些错误模式：
+• 不要使用 /home/user/* (Linux风格路径，macOS不适用)
+• 不要操作工作目录外的路径
+• 不要使用 ../ 访问父目录`, originalError)
+	}
+
+	// 检查是否为权限相关错误
+	if isPermissionError(originalError) {
+		return fmt.Sprintf(`%s
+
+🔒 权限错误诊断：
+可能的解决方案：
+• 确保路径在 Desktop Commander 工作目录范围内
+• 检查文件系统权限
+• 验证目录是否存在`, originalError)
+	}
+
+	// 对于其他错误，返回原始消息
+	return originalError
 }
 
 // IsMCPErrorResult 检查工具结果是否为MCP错误结果
@@ -101,4 +149,47 @@ func IsMCPErrorResult(resultText string) (bool, *MCPErrorResult) {
 	}
 
 	return false, nil
+}
+
+// isPathRelatedError 检查是否为路径相关错误
+func isPathRelatedError(errorMsg string) bool {
+	errorMsg = strings.ToLower(errorMsg)
+	pathErrorIndicators := []string{
+		"no such file or directory",
+		"enoent",
+		"path",
+		"directory", 
+		"mkdir",
+		"create",
+		"file not found",
+		"cannot access",
+		"permission denied",
+		"/home/user", // 特别检查Linux风格路径错误
+	}
+	
+	for _, indicator := range pathErrorIndicators {
+		if strings.Contains(errorMsg, indicator) {
+			return true
+		}
+	}
+	return false
+}
+
+// isPermissionError 检查是否为权限相关错误
+func isPermissionError(errorMsg string) bool {
+	errorMsg = strings.ToLower(errorMsg)
+	permissionErrorIndicators := []string{
+		"permission denied",
+		"access denied", 
+		"forbidden",
+		"unauthorized",
+		"eacces",
+	}
+	
+	for _, indicator := range permissionErrorIndicators {
+		if strings.Contains(errorMsg, indicator) {
+			return true
+		}
+	}
+	return false
 }

@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -117,6 +118,13 @@ func loadDesktopCommanderTools() ([]tool.BaseTool, error) {
 
 	log.Println("Desktop Commander MCP connection initialized successfully")
 
+	// 配置 allowedDirectories
+	err = configureAllowedDirectories(ctx, cli, config.WorkingDir)
+	if err != nil {
+		log.Printf("Warning: failed to configure allowedDirectories: %v", err)
+		// 不返回错误，继续初始化工具，因为配置失败不应该阻止工具加载
+	}
+
 	// 获取工具列表
 	toolsChan := make(chan struct {
 		tools []tool.BaseTool
@@ -174,5 +182,58 @@ func ResetDesktopCommanderTools() {
 	desktopCommanderOnce = sync.Once{}
 	desktopCommanderTools = nil
 	desktopCommanderError = nil
+}
+
+// configureAllowedDirectories 配置 Desktop Commander 的允许目录
+func configureAllowedDirectories(ctx context.Context, cli *client.Client, workingDir string) error {
+	log.Printf("正在配置 Desktop Commander 的 allowedDirectories: %s", workingDir)
+
+	// 准备 set_config_value 工具调用参数
+	setConfigParams := map[string]interface{}{
+		"key":   "allowedDirectories",
+		"value": []string{workingDir},
+	}
+
+	// 序列化参数
+	paramsJSON, err := json.Marshal(setConfigParams)
+	if err != nil {
+		return fmt.Errorf("failed to marshal set_config_value params: %w", err)
+	}
+
+	// 调用 set_config_value 工具
+	callToolRequest := mcp.CallToolRequest{}
+	callToolRequest.Params.Name = "set_config_value"
+	
+	// 将参数作为 JSON 字符串传递
+	var arguments map[string]interface{}
+	err = json.Unmarshal(paramsJSON, &arguments)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal params for tool call: %w", err)
+	}
+	callToolRequest.Params.Arguments = arguments
+
+	// 执行工具调用
+	result, err := cli.CallTool(ctx, callToolRequest)
+	if err != nil {
+		return fmt.Errorf("failed to call set_config_value tool: %w", err)
+	}
+
+	// 检查调用结果
+	if result.IsError {
+		return fmt.Errorf("set_config_value tool returned error: %+v", result)
+	}
+
+	log.Printf("Desktop Commander allowedDirectories 配置成功: %s", workingDir)
+	
+	// 打印配置结果（可选）
+	if len(result.Content) > 0 {
+		for _, content := range result.Content {
+			if textContent, ok := content.(*mcp.TextContent); ok && textContent.Text != "" {
+				log.Printf("配置结果: %s", textContent.Text)
+			}
+		}
+	}
+
+	return nil
 }
 
