@@ -1055,7 +1055,7 @@ function App() {
                             <StreamingMessageDisplay
                               messageId={message.id}
                               isStreaming={isLoading && message.id.includes('temp')}
-                              initialContent={message.content}
+                              initialContent={message.content}  // ✅ 恢复：显示已存在内容
                               ref={(ref: StreamingMessageDisplayRef | null) => {
                                 if (ref && message.id) {
                                   // 🔑 关键修复：确保ref始终使用最新的消息ID
