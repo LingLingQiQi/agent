@@ -172,9 +172,19 @@ body {
   list-style-position: outside !important;
 }
 
-/* 注释掉强制的list-style-type，让ds-markdown自己处理todolist */
+/* 普通无序列表保持项目符号 */
 .markdown-content .ds-markdown ul {
   list-style-type: disc !important;
+}
+
+/* 任务列表（包含复选框的列表项）不显示项目符号 */
+.markdown-content .ds-markdown ul li:has(input[type="checkbox"]) {
+  list-style-type: none !important;
+}
+
+/* 备用方案：如果浏览器不支持 :has() 选择器，可以用这个更通用的规则 */
+.markdown-content .ds-markdown ul li input[type="checkbox"] {
+  margin-left: -1.2em; /* 负边距来抵消项目符号的位置 */
 }
 
 .markdown-content .ds-markdown ol {
