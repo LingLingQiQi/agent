@@ -222,13 +222,47 @@ body {
   text-indent: -1rem !important;
 }
 
-/* 引用样式 */
+/* 引用样式 - 优化连续引用块的显示 */
 .markdown-content .ds-markdown blockquote {
   border-left: 4px solid #d1d5db !important;
   padding-left: 1rem !important;
   font-style: italic !important;
   color: #6b7280 !important;
-  margin: 0.75rem 0 !important;
+  margin: 0 !important; /* 移除默认边距，让相邻引用块连接 */
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+
+/* 相邻引用块之间的无缝连接 */
+.markdown-content .ds-markdown blockquote + blockquote {
+  margin-top: 0 !important;
+  padding-top: 0 !important; /* 移除顶部内边距，紧密连接 */
+}
+
+/* 引用块与其他元素的间距 - 引用块前的间距 */
+.markdown-content .ds-markdown > *:not(blockquote) + blockquote,
+.markdown-content .ds-markdown p + blockquote,
+.markdown-content .ds-markdown h1 + blockquote,
+.markdown-content .ds-markdown h2 + blockquote,
+.markdown-content .ds-markdown h3 + blockquote,
+.markdown-content .ds-markdown h4 + blockquote,
+.markdown-content .ds-markdown ul + blockquote,
+.markdown-content .ds-markdown ol + blockquote,
+.markdown-content .ds-markdown pre + blockquote {
+  margin-top: 0.75rem !important;
+}
+
+/* 引用块与其他元素的间距 - 引用块后的间距 */
+.markdown-content .ds-markdown blockquote + *:not(blockquote),
+.markdown-content .ds-markdown blockquote + p,
+.markdown-content .ds-markdown blockquote + h1,
+.markdown-content .ds-markdown blockquote + h2,
+.markdown-content .ds-markdown blockquote + h3,
+.markdown-content .ds-markdown blockquote + h4,
+.markdown-content .ds-markdown blockquote + ul,
+.markdown-content .ds-markdown blockquote + ol,
+.markdown-content .ds-markdown blockquote + pre {
+  margin-top: 0.75rem !important;
 }
 
 /* 表格样式 */
