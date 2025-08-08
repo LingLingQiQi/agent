@@ -970,7 +970,7 @@ func createWritePlanLambda(sessionID string, progressManager *ProgressManager) *
 		if err != nil {
 			logger.Errorf("Failed to write plan to disk: %v", err)
 			// 如果写入失败，使用清理后的内容作为fallback
-			progressManager.SendEvent("node_complete", "", "## 💡 执行计划: \n\n"+cleanedContent+"\n\n",
+			progressManager.SendEvent("node_complete", "", "## 💡 执行计划: \n\n"+cleanedContent+"\n",
 				map[string]interface{}{"content_length": len(cleanedContent)}, nil)
 		} else {
 			logger.Infof("Successfully wrote plan to disk for session %s", sessionID)
@@ -979,11 +979,11 @@ func createWritePlanLambda(sessionID string, progressManager *ProgressManager) *
 			if err != nil {
 				logger.Errorf("Failed to read plan from disk for frontend display: %v", err)
 				// fallback到清理后的内容
-				progressManager.SendEvent("node_complete", "", "## 💡 执行计划: \n\n"+cleanedContent+"\n\n",
+				progressManager.SendEvent("node_complete", "", "## 💡 执行计划: \n\n"+cleanedContent+"\n",
 					map[string]interface{}{"content_length": len(cleanedContent)}, nil)
 			} else {
 				// 使用文件中的完整格式内容
-				progressManager.SendEvent("node_complete", "", "## 💡 执行计划: \n\n"+fileContent+"\n\n",
+				progressManager.SendEvent("node_complete", "", "## 💡 执行计划: \n\n"+fileContent+"\n",
 					map[string]interface{}{"content_length": len(fileContent)}, nil)
 			}
 		}
@@ -1176,7 +1176,7 @@ func createScanTodoListLambda(sessionID string, progressManager *ProgressManager
 
 			if incompleteTodo != "" {
 				// 找到未完成的任务，返回该任务作为用户查询
-				progressManager.SendEvent("node_complete", "> ##### ⚡️ 开始执行: \n\n", "> "+incompleteTodo+"\n\n",
+				progressManager.SendEvent("node_complete", "> **⚡️ 开始执行:** \n\n", "> "+incompleteTodo+"\n\n",
 					map[string]interface{}{"content_length": len(input.Content)}, nil)
 				logger.Infof("Found incomplete task to execute: %s", incompleteTodo)
 				resultMessage = &schema.Message{
@@ -1291,11 +1291,11 @@ func createWriteUpdatedPlanLambda(sessionID string, progressManager *ProgressMan
 			if err != nil {
 				logger.Errorf("Failed to read updated plan from disk for frontend display: %v", err)
 				// fallback到清理后的内容
-				progressManager.SendEvent("node_complete", "#### 🔄 更新计划: \n", cleanedContent+"\n\n",
+				progressManager.SendEvent("node_complete", "#### 🔄 更新计划: \n", cleanedContent+"\n",
 					map[string]interface{}{"content_length": len(cleanedContent)}, nil)
 			} else {
 				// 使用文件中的完整格式内容
-				progressManager.SendEvent("node_complete", "#### 🔄 更新计划: \n", fileContent+"\n\n",
+				progressManager.SendEvent("node_complete", "#### 🔄 更新计划: \n", fileContent+"\n",
 					map[string]interface{}{"content_length": len(fileContent)}, nil)
 			}
 		}
@@ -1752,7 +1752,7 @@ func composeGraph[I, O any](ctx context.Context, planModel einoModel.ChatModel, 
 					args = args[:500] + "... (参数过长已截断)"
 				}
 				logger.Infof("📄 [参数%d] %s", i+1, args)
-				progressManager.SendEvent("node_complete", "", "> **🔧 调用工具【"+toolCall.Function.Name+"】**\n\n > **参数：**"+args+"\n\n", nil, nil)
+				progressManager.SendEvent("node_complete", "", "> 🔧 **调用工具【"+toolCall.Function.Name+"】**\n\n > **参数：**"+args+"\n\n", nil, nil)
 			}
 		}
 
