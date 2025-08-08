@@ -1176,7 +1176,7 @@ func createScanTodoListLambda(sessionID string, progressManager *ProgressManager
 
 			if incompleteTodo != "" {
 				// 找到未完成的任务，返回该任务作为用户查询
-				progressManager.SendEvent("node_complete", "\n\n##### ⚡️ 开始执行: \n\n", incompleteTodo+"\n",
+				progressManager.SendEvent("node_complete", "\n\n> ##### ⚡️ 开始执行: \n\n", "> "+incompleteTodo+"\n\n",
 					map[string]interface{}{"content_length": len(input.Content)}, nil)
 				logger.Infof("Found incomplete task to execute: %s", incompleteTodo)
 				resultMessage = &schema.Message{
@@ -1752,6 +1752,7 @@ func composeGraph[I, O any](ctx context.Context, planModel einoModel.ChatModel, 
 					args = args[:500] + "... (参数过长已截断)"
 				}
 				logger.Infof("📄 [参数%d] %s", i+1, args)
+				progressManager.SendEvent("node_complete", "", "> **🔧 调用工具【"+toolCall.Function.Name+"】**\n\n > **参数：**"+args+"\n\n", nil, nil)
 			}
 		}
 
@@ -1770,7 +1771,7 @@ func composeGraph[I, O any](ctx context.Context, planModel einoModel.ChatModel, 
 
 		// 处理清理后的消息切片
 		for _, msg := range cleanedMessages {
-			progressManager.SendEvent("node_complete", "", "> "+msg.Content+"\n\n",
+			progressManager.SendEvent("node_complete", "", "> **结果：**"+msg.Content+"\n\n",
 				map[string]interface{}{"content_length": len(msg.Content)}, nil)
 		}
 		return cleanedMessages, nil
