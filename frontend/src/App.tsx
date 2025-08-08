@@ -1005,7 +1005,7 @@ function App() {
           </div>
           
           {/* Bottom Section */}
-          <div className="mt-auto pt-6 border-t border-border-light">
+          <div className="mt-auto pt-6">
             <div className="space-y-2">
               <div className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
                 <div className="w-8 h-8 flex items-center justify-center">
