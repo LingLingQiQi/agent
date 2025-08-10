@@ -945,6 +945,65 @@ func min(a, b int) int {
 	return b
 }
 
+// truncateToolResult 截断过长的工具返回内容
+// content: 原始内容
+// maxLength: 最大长度限制（3777）
+// 返回: 截断后的内容
+func truncateToolResult(content string, maxLength int) string {
+	// 如果内容不超长，直接返回
+	if len(content) <= maxLength {
+		return content
+	}
+	
+	// 预留100字符用于添加截断提示
+	const reservedSpace = 100
+	actualMaxLength := maxLength - reservedSpace
+	
+	// 如果内容太短，无法有效截断，返回简单提示
+	if actualMaxLength <= 0 {
+		return "... (内容过长，无法显示)"
+	}
+	
+	// 按行分割内容
+	lines := strings.Split(content, "\n")
+	
+	// 逐行累加直到超过长度限制
+	var truncatedLines []string
+	currentLength := 0
+	
+	for i, line := range lines {
+		// 计算添加这一行后的总长度
+		lineLength := len(line)
+		if i > 0 {
+			lineLength += 1 // 加上换行符
+		}
+		
+		if currentLength + lineLength > actualMaxLength {
+			// 如果是第一行就超长，则截断这一行
+			if i == 0 {
+				truncatedLines = append(truncatedLines, line[:actualMaxLength])
+				currentLength = actualMaxLength
+			}
+			// 计算剩余内容
+			remainingLines := len(lines) - i
+			remainingChars := len(content) - currentLength
+			
+			// 构建结果
+			result := strings.Join(truncatedLines, "\n")
+			truncateInfo := fmt.Sprintf("\n\n... (内容过长已截断，还剩 %d 行，约 %d 字符)", 
+				remainingLines, remainingChars)
+			
+			return result + truncateInfo
+		}
+		
+		truncatedLines = append(truncatedLines, line)
+		currentLength += lineLength
+	}
+	
+	// 理论上不应该到这里，但为了安全还是返回原内容
+	return content
+}
+
 // createWritePlanLambdaWithProgress 创建带进度报告的 writePlan lambda 函数
 func createWritePlanLambda(sessionID string, progressManager *ProgressManager) *compose.Lambda {
 	return compose.InvokableLambda(func(ctx context.Context, input *schema.Message) (*schema.Message, error) {
@@ -1771,7 +1830,11 @@ func composeGraph[I, O any](ctx context.Context, planModel einoModel.ChatModel, 
 
 		// 处理清理后的消息切片
 		for _, msg := range cleanedMessages {
-			progressManager.SendEvent("node_complete", "", "> **结果：**"+msg.Content+"\n\n",
+			// 截断过长的内容（3777字符限制）
+			truncatedContent := truncateToolResult(msg.Content, 3777)
+			
+			// 发送截断后的内容
+			progressManager.SendEvent("node_complete", "", "> **结果：**"+truncatedContent+"\n\n",
 				map[string]interface{}{"content_length": len(msg.Content)}, nil)
 		}
 		return cleanedMessages, nil
