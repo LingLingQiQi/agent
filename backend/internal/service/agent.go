@@ -1806,9 +1806,9 @@ func composeGraph[I, O any](ctx context.Context, planModel einoModel.ChatModel, 
 
 				// 格式化参数输出，限制长度避免日志过长
 				args := toolCall.Function.Arguments
-				if len(args) > 500 {
-					args = args[:500] + "... (参数过长已截断)"
-				}
+				// if len(args) > 500 {
+				// 	args = args[:500] + "... (参数过长已截断)"
+				// }
 				logger.Infof("📄 [参数%d] %s", i+1, args)
 				progressManager.SendEvent("node_complete", "", "> 🔧 **调用工具【"+toolCall.Function.Name+"】**\n\n > **参数：**"+args+"\n\n", nil, nil)
 			}
