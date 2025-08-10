@@ -206,7 +206,7 @@ start_backend() {
     log_info "启动后端服务器 (端口 8443)..."
     
     # 启动后端并保存PID
-    nohup go run cmd/main.go > /tmp/backend.log 2>&1 &
+    nohup go run cmd/main.go > ./data/log/backend.log 2>&1 &
     BACKEND_PID=$!
     
     cd ..
@@ -237,8 +237,8 @@ start_backend() {
     log_error "后端服务启动失败，请检查日志输出"
     echo ""
     echo "================= 后端错误日志 ================="
-    if [ -f "/tmp/backend.log" ] && [ -s "/tmp/backend.log" ]; then
-        cat /tmp/backend.log
+    if [ -f "./data/log/backend.log" ] && [ -s "./data/log/backend.log" ]; then
+        cat ./data/log/backend.log
     else
         log_error "后端日志文件为空或不存在，可能启动过程中出现严重错误"
         log_info "请手动运行以查看详细错误："
@@ -323,7 +323,7 @@ show_access_info() {
     echo "   开发模式:     ./start-with-logs.sh"
     echo ""
     echo "📄 日志文件："
-    echo "   后端日志: tail -f /tmp/backend.log"
+    echo "   后端日志: tail -f ./backend/data/log/backend.log"
     echo "   静态服务: tail -f /tmp/static.log"
     echo ""
     echo "💡 提示："

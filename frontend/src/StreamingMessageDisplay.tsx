@@ -61,7 +61,7 @@ export const StreamingMessageDisplay = forwardRef<StreamingMessageDisplayRef, St
           
           console.log(`📝 批量推送到ds-markdown: messageId=${messageId}, 长度=${bufferContent.length}`)
         }
-      }, 5), // 🔑 优化：减少防抖延迟到15ms，匹配ds-markdown间隔，提高响应速度
+      }, 2), // 🔑 优化：减少防抖延迟到15ms，匹配ds-markdown间隔，提高响应速度
       [messageId]
     )
 
@@ -147,7 +147,7 @@ export const StreamingMessageDisplay = forwardRef<StreamingMessageDisplayRef, St
     // 🔑 性能优化：使用稳定的props对象，减少MarkdownCMD重渲染
     const markdownProps = {
       timerType: "requestAnimationFrame" as const,
-      interval: 5,  // 适中的间隔：平衡流畅度和性能
+      interval: 2,  // 适中的间隔：平衡流畅度和性能
       autoStartTyping: true,
       onStart: handleStart,
       onEnd: handleEnd,

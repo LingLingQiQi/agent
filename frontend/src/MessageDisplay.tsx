@@ -165,7 +165,7 @@ export const MessageDisplay = ({ content, isStreaming, onHTMLExtracted, messageI
       {displayContent && (
         <div>
           <Markdown 
-            interval={10}
+            interval={5}
             answerType="answer"
             timerType="requestAnimationFrame"
             theme="light"
